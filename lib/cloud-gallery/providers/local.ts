@@ -1,4 +1,4 @@
-import { CloudImage, CloudGalleryProvider } from '../../types';
+import { CloudImage, CloudGalleryProvider } from '../types';
 import fs from 'fs';
 import path from 'path';
 
@@ -28,7 +28,7 @@ export class LocalFolderProvider implements CloudGalleryProvider {
         url: `file://${file.path}`,
         width: undefined,
         height: undefined,
-        modifiedAt: file.stats.mtime,
+        modifiedAt: file.stats.mtime.toISOString(),
         size: file.stats.size,
         mimeType: this.getMimeType(file.name)
       }));
@@ -86,6 +86,16 @@ export class LocalFolderProvider implements CloudGalleryProvider {
       '.tiff': 'image/tiff'
     };
     return mimeTypes[extension] || 'application/octet-stream';
+  }
+
+  async getImageUrl(imageId: string): Promise<string> {
+    return `file://${imageId}`;
+  }
+
+  async getThumbnailUrl(imageId: string): Promise<string> {
+    // For local files, we'll return the same URL as the full image
+    // In a real implementation, you might generate thumbnails
+    return `file://${imageId}`;
   }
 }
 

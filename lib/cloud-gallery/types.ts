@@ -2,14 +2,15 @@ export interface CloudImage {
   id: string;
   name: string;
   url: string;
-  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+  modifiedAt?: string;
   size?: number;
-  type?: string;
-  lastModified?: Date;
+  mimeType?: string;
 }
 
 export interface CloudGalleryProvider {
-  getImages(): Promise<CloudImage[]>;
+  listImages(): Promise<CloudImage[]>;
   getImageUrl(imageId: string): Promise<string>;
   getThumbnailUrl(imageId: string): Promise<string>;
 }
