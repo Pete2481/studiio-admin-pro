@@ -59,7 +59,7 @@ export class LinkParser {
   private static isLocalFolder(input: string): boolean {
     // Check if it's a valid file system path
     return input.startsWith('/') || input.startsWith('./') || input.startsWith('../') || 
-           (process.platform === 'win32' && (input.match(/^[A-Za-z]:\\/) || input.match(/^\\\\/)));
+           (process.platform === 'win32' && (!!input.match(/^[A-Za-z]:\\/) || !!input.match(/^\\\\/)));
   }
   
   /**
