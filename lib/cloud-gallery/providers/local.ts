@@ -1,4 +1,4 @@
-import { CloudImage, CloudGalleryProvider } from '../types';
+import { CloudImage, CloudGalleryProvider } from '../../types';
 import fs from 'fs';
 import path from 'path';
 
