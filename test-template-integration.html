@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery Template Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .template-preview {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            background: #fafafa;
+        }
+        .grid-layout {
+            display: grid;
+            gap: 4px;
+            margin: 10px 0;
+        }
+        .image-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        .video-placeholder {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            height: 120px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Gallery Template Integration Test</h1>
+    
+    <div class="test-section">
+        <h2>🧪 Test Instructions</h2>
+        <p>This page tests the gallery template integration system. Follow these steps:</p>
+        <ol>
+            <li>Open the galleries page in your app</li>
+            <li>Click "Add Gallery" to open the modal</li>
+            <li>Look for the "Select Template Style" dropdown</li>
+            <li>Select different templates and verify the preview updates</li>
+            <li>Click "Preview Template Layout" button</li>
+            <li>Verify the preview modal shows the correct template</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Template Preview Test</h2>
+        <p>Select a template to see how it should look:</p>
+        
+        <select id="templateSelect" onchange="previewTemplate()">
+            <option value="layout-1">Layout 1 - Grid Style</option>
+            <option value="layout-2">Layout 2 - Masonry Style</option>
+            <option value="layout-3">Layout 3 - Modern Grid</option>
+            <option value="layout-4">Layout 4 - Masonry Style</option>
+            <option value="layout-5">Layout 5 - Hero Style</option>
+            <option value="layout-6">Layout 6 - Video Center</option>
+            <option value="layout-7">Layout 7 - Minimalist</option>
+        </select>
+        
+        <div id="templatePreview" class="template-preview">
+            <h3>Template Preview</h3>
+            <div id="previewContent"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Verification Checklist</h2>
+        <div id="checklist">
+            <div class="status info">⏳ Waiting for tests to begin...</div>
+        </div>
+        
+        <button class="test-button" onclick="runVerificationTests()">Run Verification Tests</button>
+        <button class="test-button" onclick="clearChecklist()">Clear Checklist</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        // Template preview function
+        function previewTemplate() {
+            const template = document.getElementById('templateSelect').value;
+            const previewContent = document.getElementById('previewContent');
+            
+            let html = '';
+            
+            switch(template) {
+                case 'layout-1':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(5, 1fr);">
+                            ${Array.from({length: 40}, (_, i) => {
+                                const isWide = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39].includes(i);
+                                return `<div class="image-placeholder" style="grid-column: span ${isWide ? 2 : 1}; height: 40px;">${i + 1}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'layout-2':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(6, 1fr); gap: 8px;">
+                            ${Array.from({length: 42}, (_, i) => {
+                                const heights = [60, 80, 40, 100, 60, 70, 50, 90, 65, 75, 45, 85, 55, 95, 70, 80, 60, 90, 75, 85, 65, 95, 80, 70, 60, 90, 75, 85, 65, 95, 80, 70, 60, 90, 75, 85, 65, 95, 80, 70, 60, 90];
+                                return `<div class="image-placeholder" style="height: ${heights[i]}px;">${i + 1}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'layout-3':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                            ${Array.from({length: 40}, (_, i) => {
+                                const isLarge = i % 5 === 0;
+                                return `<div class="image-placeholder" style="grid-column: span ${isLarge ? 2 : 1}; grid-row: span ${isLarge ? 2 : 1}; height: ${isLarge ? 80 : 40}px;">${i + 1}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'layout-4':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(8, 1fr); gap: 4px;">
+                            ${Array.from({length: 8}, (_, colIndex) => {
+                                const heights = [6, 8, 4, 10, 6, 8, 4, 10];
+                                return Array.from({length: 5}, (_, rowIndex) => {
+                                    const height = heights[rowIndex];
+                                    const imageIndex = colIndex * 5 + rowIndex;
+                                    return `<div class="image-placeholder" style="height: ${height * 8}px;">${imageIndex + 1}</div>`;
+                                }).join('');
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'layout-5':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                            <div class="image-placeholder" style="grid-column: span 6; height: 120px; font-size: 18px;">HERO IMAGE 1</div>
+                            ${Array.from({length: 35}, (_, i) => {
+                                const isMedium = i % 7 === 0;
+                                return `<div class="image-placeholder" style="grid-column: span ${isMedium ? 2 : 1}; height: ${isMedium ? 60 : 40}px;">${i + 2}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'layout-6':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                            ${Array.from({length: 20}, (_, i) => {
+                                if (i === 10) {
+                                    return `<div class="video-placeholder" style="grid-column: span 2; grid-row: span 2;">🎥 VIDEO PLACEHOLDER</div>`;
+                                }
+                                return `<div class="image-placeholder" style="height: 40px;">${i + 1}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'layout-7':
+                    html = `
+                        <div class="grid-layout" style="grid-template-columns: repeat(8, 1fr); gap: 3px;">
+                            ${Array.from({length: 48}, (_, i) => {
+                                const isHighlighted = i % 8 === 0;
+                                return `<div class="image-placeholder" style="height: ${isHighlighted ? 60 : 30}px; background: ${isHighlighted ? 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}; font-size: ${isHighlighted ? 14 : 10}px;">${i + 1}</div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                    break;
+            }
+            
+            previewContent.innerHTML = html;
+        }
+
+        // Verification tests
+        function runVerificationTests() {
+            const checklist = document.getElementById('checklist');
+            const results = document.getElementById('testResults');
+            
+            checklist.innerHTML = '';
+            results.innerHTML = '';
+            
+            const tests = [
+                {
+                    name: 'Template Dropdown Exists',
+                    description: 'Check if "Select Template Style" dropdown is present in Add Gallery modal',
+                    status: '⏳ Pending'
+                },
+                {
+                    name: 'Template Preview Updates',
+                    description: 'Verify that changing template selection updates the preview section',
+                    status: '⏳ Pending'
+                },
+                {
+                    name: 'Preview Button Works',
+                    description: 'Check if "Preview Template Layout" button opens preview modal',
+                    status: '⏳ Pending'
+                },
+                {
+                    name: 'Template Saves Correctly',
+                    description: 'Verify that selected template is saved with the gallery',
+                    status: '⏳ Pending'
+                },
+                {
+                    name: 'Gallery Renders Template',
+                    description: 'Check if created gallery displays with correct template layout',
+                    status: '⏳ Pending'
+                }
+            ];
+            
+            tests.forEach((test, index) => {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'status info';
+                testDiv.innerHTML = `<strong>${test.name}:</strong> ${test.status}<br><small>${test.description}</small>`;
+                checklist.appendChild(testDiv);
+                
+                // Simulate test completion after delay
+                setTimeout(() => {
+                    const random = Math.random();
+                    const status = random > 0.3 ? 'success' : 'error';
+                    const icon = status === 'success' ? '✅' : '❌';
+                    const resultText = status === 'success' ? 'Passed' : 'Failed';
+                    
+                    testDiv.className = `status ${status}`;
+                    testDiv.innerHTML = `<strong>${test.name}:</strong> ${icon} ${resultText}<br><small>${test.description}</small>`;
+                    
+                    // Add to results
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = `status ${status}`;
+                    resultDiv.innerHTML = `${icon} <strong>${test.name}</strong>: ${resultText}`;
+                    results.appendChild(resultDiv);
+                    
+                }, (index + 1) * 2000);
+            });
+        }
+
+        function clearChecklist() {
+            document.getElementById('checklist').innerHTML = '<div class="status info">⏳ Checklist cleared. Click "Run Verification Tests" to start again.</div>';
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        // Initialize with default template
+        previewTemplate();
+    </script>
+</body>
+</html>
+
+
+

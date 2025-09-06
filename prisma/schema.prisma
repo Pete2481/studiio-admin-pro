@@ -1,0 +1,499 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ===== AUTHENTICATION & SESSIONS =====
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===== CORE USER MODEL =====
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  userTenants   UserTenant[]
+  invitations   Invitation[] @relation("InvitedBy")
+  bookings      Booking[]
+  galleries     Gallery[]
+  invoices      Invoice[]
+  services      Service[]
+  clients       Client[]
+  companies     Company[]
+  agents        Agent[]
+  assignments   Assignment[]
+  assignedBy    Assignment[] @relation("AssignmentAssigner")
+  auditLogs     AuditLog[]
+  newsletters   Newsletter[]
+  images       Image[]
+
+  @@map("users")
+}
+
+// ===== TENANT & RBAC MODELS =====
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  domain      String?  @unique
+  logo        String?
+  primaryColor String? @default("#0D9488") // teal-600
+  secondaryColor String? @default("#14B8A6") // teal-500
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userTenants UserTenant[]
+  bookings    Booking[]
+  galleries   Gallery[]
+  images      Image[]
+  invoices    Invoice[]
+  services    Service[]
+  clients     Client[]
+  companies   Company[]
+  agents      Agent[]
+  auditLogs   AuditLog[]
+  webhooks    Webhook[]
+  settings    TenantSettings?
+  invitations Invitation[]
+  newsletters Newsletter[]
+
+  @@map("tenants")
+}
+
+model UserTenant {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      String // MASTER_ADMIN, SUB_ADMIN, CLIENT, PHOTOGRAPHER, EDITOR
+  isActive  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@map("user_tenants")
+}
+
+// Role enum - will be handled as string in SQLite
+
+// ===== INVITATION SYSTEM =====
+
+model Invitation {
+  id        String   @id @default(cuid())
+  email     String
+  tenantId  String
+  role      String // MASTER_ADMIN, SUB_ADMIN, CLIENT, PHOTOGRAPHER, EDITOR
+  invitedBy String
+  token     String   @unique
+  expiresAt DateTime
+  accepted  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  inviter User @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+// ===== TENANT SETTINGS =====
+
+model TenantSettings {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  businessHours         String?  // Store business hours as JSON string
+  notificationSettings  String?  // Store notification preferences as JSON string
+  brandingSettings      String?  // Store branding preferences as JSON string
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+// ===== BUSINESS MODELS =====
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  type            String?  // e.g., "Luxury Real Estate"
+  phone           String?
+  email           String?
+  invoiceEmails   String?  // JSON string for multiple emails
+  password        String?  // hashed password
+  logoUrl         String?  // URL to logo image
+  isActive        Boolean  @default(true)
+  propertiesCount Int      @default(0)
+  clientsCount    Int      @default(0)
+  salesVolume     String?  // e.g., "$1.2B"
+  permissions     String?  // JSON string for permissions
+  sendWelcomeEmail Boolean @default(false)
+  tenantId        String
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator  User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  clients  Client[]
+  agents   Agent[]
+
+  @@map("companies")
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  profileImage String? // URL to profile image
+  role        String   // e.g., "Senior Real Estate Agent", "Luxury Property Specialist"
+  isActive    Boolean  @default(true)
+  companyId   String   // Reference to Company
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator  User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("agents")
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  companyId   String?  // Reference to Company instead of company string
+  address     String?
+  isActive    Boolean  @default(true)
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator  User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  company  Company? @relation(fields: [companyId], references: [id])
+  bookings Booking[]
+  invoices Invoice[]
+  newsletters NewsletterRecipient[]
+
+  @@map("clients")
+}
+
+model Booking {
+  id            String   @id @default(cuid())
+  title         String
+  start         DateTime
+  end           DateTime
+  status        String @default("TENTATIVE") // TENTATIVE, CONFIRMED, PENCILED, CANCELLED, REQUEST
+  clientId      String?
+  address       String?
+  notes         String?
+  durationM     Int      @default(60)
+  tenantId      String
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator   User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  client    Client? @relation(fields: [clientId], references: [id])
+  galleries Gallery[]
+  assignments Assignment[]
+
+  @@map("bookings")
+}
+
+// BookingStatus enum - will be handled as string in SQLite
+
+model Gallery {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  publicId    String   @unique
+  isPublic    Boolean  @default(false)
+  expiresAt   DateTime?
+  accessPolicy String? // JSON string for access control
+  bookingId   String?
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator  User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+  images   GalleryImage[]
+
+  @@map("galleries")
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  galleryId String
+  storageUrl String
+  type      String   // image, video, document
+  version   String?  // version identifier
+  watermark Boolean  @default(false)
+  alt       String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Relations
+  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  @@map("gallery_images")
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  amountCents   Int      // Store as cents to avoid floating point issues
+  status        String @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
+  dueDate       DateTime?
+  clientId      String?
+  tenantId      String
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  client  Client? @relation(fields: [clientId], references: [id])
+
+  @@map("invoices")
+}
+
+model Assignment {
+  id        String   @id @default(cuid())
+  bookingId String
+  userId    String
+  role      String   // PHOTOGRAPHER, EDITOR
+  assignedAt DateTime @default(now())
+  assignedBy String
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assigner User   @relation("AssignmentAssigner", fields: [assignedBy], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, userId, role])
+  @@map("assignments")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  tenantId    String
+  action      String   // job.created, job.updated, gallery.created, etc.
+  entity      String   // job, gallery, invoice, etc.
+  entityId    String
+  diff        String?  // JSON string of changes
+  createdAt   DateTime @default(now())
+
+  // Relations
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  tenantId  String
+  url       String
+  events    String   // JSON array of event types
+  isActive  Boolean  @default(true)
+  secret    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+// InvoiceStatus enum - will be handled as string in SQLite
+
+model Service {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  icon            String   @default("📸")
+  price           Float
+  durationMinutes Int      @default(60)
+  isActive        Boolean  @default(true)
+  tenantId        String
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Additional fields for enhanced functionality
+  imageQuotaEnabled Boolean @default(false)
+  imageQuota        Int     @default(0)
+  displayPrice      Boolean @default(true)
+  favorite          Boolean @default(false)
+  status            String  @default("Active") // Active, Inactive
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("services")
+}
+
+// ===== NEWSLETTER MODELS =====
+
+model Newsletter {
+  id          String   @id @default(cuid())
+  title       String
+  subject     String
+  status      String   @default("DRAFT") // DRAFT, SENT, SCHEDULED
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sentAt      DateTime?
+  scheduledFor DateTime?
+
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator     User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  content     NewsletterContent[]
+  recipients  NewsletterRecipient[]
+
+  @@map("newsletters")
+}
+
+model NewsletterContent {
+  id           String   @id @default(cuid())
+  newsletterId String
+  type         String   // text, image, heading, button, divider
+  content      String   // Text content or image URL
+  positionX    Int      // X position for drag and drop
+  positionY    Int      // Y position for drag and drop
+  width        Int      // Width of the content block
+  height       Int      // Height of the content block
+  order        Int      // Display order
+  metadata     String?  // JSON string for additional properties (font, color, etc.)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+
+  @@map("newsletter_content")
+}
+
+model NewsletterRecipient {
+  id           String   @id @default(cuid())
+  newsletterId String
+  clientId     String?
+  email        String   // Direct email if no client
+  status       String   @default("PENDING") // PENDING, SENT, FAILED, BOUNCED
+  sentAt       DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  client     Client?   @relation(fields: [clientId], references: [id])
+
+  @@map("newsletter_recipients")
+}
+
+// ===== IMAGE STORAGE MODEL =====
+
+model Image {
+  id          String   @id @default(cuid())
+  filename    String   // Original filename
+  originalName String  // Original filename with extension
+  mimeType    String   // MIME type of the image
+  size        Int      // File size in bytes
+  width       Int?     // Image width in pixels
+  height      Int?     // Image height in pixels
+  url         String   // URL/path to the stored image
+  altText     String?  // Alt text for accessibility
+  tenantId    String   // Which tenant owns this image
+  uploadedBy  String   // User who uploaded the image
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploader    User   @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@map("images")
+}

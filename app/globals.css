@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --text: #111827;
+  --muted: #64748b;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --accent: #e9f9f0;
+  --accent-hover: #d3f2e1;
+  --accent-active: #b7e7cc;
+}
+
+html, body, :root { height: 100%; }
+body{
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Helpers */
+.container { @apply mx-auto px-4; }
+
+.card { @apply bg-[var(--card)] rounded-2xl shadow-soft border border-[var(--border)]; }
+
+.btn {
+  @apply rounded-xl px-3 py-2 text-sm font-medium border;
+  background-color: var(--accent);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn:hover { background-color: var(--accent-hover); }
+.btn:active, .btn[aria-pressed="true"] { background-color: var(--accent-active); }
+
+/* ---------- FullCalendar Overrides ---------- */
+.fc{
+  background-color:#ffffff;
+  color:#111827;
+}
+.fc .fc-button{
+  background-color:#e9f9f0 !important;
+  border:1px solid #e5e7eb !important;
+  color:#111827 !important;
+  border-radius:0.5rem;
+  font-weight:500;
+  padding:0.45rem 0.8rem;
+}
+.fc .fc-button:hover{ background-color:#d3f2e1 !important; }
+.fc .fc-button.fc-button-active{ background-color:#b7e7cc !important; color:#000 !important; }
+.fc .fc-col-header-cell, .fc .fc-timegrid-slot, .fc .fc-daygrid-day { border-color:#e5e7eb; }
+.fc .fc-timegrid-axis-cushion, .fc .fc-col-header-cell-cushion { padding: 6px 8px; }
+/* ------------------------------------------- */
