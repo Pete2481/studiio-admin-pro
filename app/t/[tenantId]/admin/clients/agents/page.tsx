@@ -1,0 +1,314 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { Search, Filter, Plus, Mail, Phone, Edit, Trash2, Building, UserCheck } from "lucide-react";
+import { useAllAgents, type Agent } from "@/src/client/api/agents";
+import AgentModal from "@/components/AgentModal";
+import { useTenant } from "@/components/TenantProvider";
+import Sidebar from "@/components/Sidebar";
+
+interface GroupedAgents {
+  [companyName: string]: Agent[];
+}
+
+export default function AgentsPage() {
+  const { currentTenant } = useTenant();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [groupedAgents, setGroupedAgents] = useState<GroupedAgents>({});
+  const [filteredGroupedAgents, setFilteredGroupedAgents] = useState<GroupedAgents>({});
+
+  // Use database API instead of hardcoded data
+  const { agents, isLoading, error, fetch } = useAllAgents();
+
+  // Fetch agents when component mounts
+  useEffect(() => {
+    if (currentTenant?.slug) {
+      console.log(`🔍 Fetching agents for tenant: ${currentTenant.slug}`);
+      fetch(currentTenant.slug);
+    }
+  }, [currentTenant?.slug, fetch]);
+
+  useEffect(() => {
+    // Group agents by client (company)
+    const grouped: GroupedAgents = {};
+    agents.forEach(agent => {
+      const companyName = agent.company?.name || "Unknown Client";
+      if (!grouped[companyName]) {
+        grouped[companyName] = [];
+      }
+      grouped[companyName].push(agent);
+    });
+
+    // Sort companies alphabetically
+    const sortedGrouped: GroupedAgents = {};
+    Object.keys(grouped)
+      .sort()
+      .forEach(companyName => {
+        sortedGrouped[companyName] = grouped[companyName].sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+      });
+
+    setGroupedAgents(sortedGrouped);
+  }, [agents]);
+
+  useEffect(() => {
+    // Apply search and filter
+    const filtered: GroupedAgents = {};
+    
+    Object.keys(groupedAgents).forEach(companyName => {
+      const companyAgents = groupedAgents[companyName].filter(agent => {
+        const matchesSearch = 
+          agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (agent as any).email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (agent as any).role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          companyName.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesStatus = 
+          statusFilter === "all" || 
+          (statusFilter === "active" && (agent as any).isActive) ||
+          (statusFilter === "inactive" && !(agent as any).isActive);
+        
+        return matchesSearch && matchesStatus;
+      });
+      
+      if (companyAgents.length > 0) {
+        filtered[companyName] = companyAgents;
+      }
+    });
+
+    setFilteredGroupedAgents(filtered);
+  }, [groupedAgents, searchTerm, statusFilter]);
+
+  const handleAddAgent = () => {
+    // Redirect to companies page where users can add agents to specific companies
+    window.location.href = `/t/${currentTenant?.slug}/admin/clients/companies`;
+  };
+
+  const handleEditAgent = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setIsAgentModalOpen(true);
+  };
+
+  const handleDeleteAgent = async (agent: Agent) => {
+    if (confirm(`Are you sure you want to delete ${agent.name}?`)) {
+      // TODO: Implement delete functionality
+      // Delete agent logic here
+    }
+  };
+
+  const handleAgentSuccess = () => {
+    setIsAgentModalOpen(false);
+    setSelectedAgent(null);
+    // Refresh agents list
+    if (currentTenant?.slug) {
+      console.log(`🔄 Refreshing agents after success for tenant: ${currentTenant.slug}`);
+      fetch(currentTenant.slug);
+    }
+  };
+
+  const totalAgents = agents.length;
+  const activeAgents = agents.filter(agent => (agent as any).isActive).length;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-gray-600">Loading agents...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800">Error loading agents: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar />
+      <div className="lg:ml-16 p-6 transition-all duration-300">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Agents</h1>
+              <p className="text-gray-600">
+                {totalAgents} total agents • {activeAgents} active
+              </p>
+            </div>
+            <button
+              onClick={handleAddAgent}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Agent</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search agents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="sm:w-48">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* Filter Button */}
+            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <Filter className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Agents List */}
+        <div className="space-y-6">
+          {agents.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No agents found</h3>
+              <p className="text-gray-600 mb-6">
+                {searchTerm || statusFilter !== "all" 
+                  ? "Try adjusting your search or filter criteria."
+                  : "Get started by adding your first agent."
+                }
+              </p>
+              {!searchTerm && statusFilter === "all" && (
+                <button
+                  onClick={handleAddAgent}
+                  className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Add Your First Agent
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {agents.map(agent => (
+                  <div
+                    key={agent.id}
+                    className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    {/* Agent Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                          {(agent as any).profileImage ? (
+                            <img
+                              src={(agent as any).profileImage}
+                              alt={agent.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement!.textContent = agent.name.charAt(0).toUpperCase();
+                              }}
+                            />
+                          ) : (
+                            <span className="text-lg font-semibold text-gray-600">
+                              {agent.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{agent.name}</h3>
+                          <p className="text-sm text-gray-600">{(agent as any).role}</p>
+                          <p className="text-xs text-gray-500">Client: {agent.company?.name}</p>
+                        </div>
+                      </div>
+                      <div className={`w-2 h-2 rounded-full ${(agent as any).isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    </div>
+
+                    {/* Contact Info */}
+                    <div className="space-y-2 mb-4">
+                      {(agent as any).email && (
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <Mail className="w-4 h-4" />
+                          <span className="truncate">{(agent as any).email}</span>
+                        </div>
+                      )}
+                      {(agent as any).phone && (
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <Phone className="w-4 h-4" />
+                          <span>{(agent as any).phone}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={() => handleEditAgent(agent)}
+                        className="p-1 text-gray-400 hover:text-teal-600 transition-colors"
+                        title="Edit agent"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAgent(agent)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete agent"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Agent Modal */}
+        {isAgentModalOpen && selectedAgent && (
+          <AgentModal
+            isOpen={isAgentModalOpen}
+            onClose={() => setIsAgentModalOpen(false)}
+            companyId={(selectedAgent as any).companyId}
+            agent={selectedAgent}
+            onSuccess={handleAgentSuccess}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

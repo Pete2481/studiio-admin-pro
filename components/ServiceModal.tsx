@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Heart } from "lucide-react";
+import { Heart, ChevronDown } from "lucide-react";
 
 export type Service = {
   id: string;
@@ -18,6 +18,156 @@ export type Service = {
   favorite?: boolean; // for quick booking in calendar
 };
 
+// Photography-related icons for the dropdown
+const PHOTOGRAPHY_ICONS = [
+  { emoji: "📸", name: "Camera" },
+  { emoji: "🎥", name: "Video Camera" },
+  { emoji: "📷", name: "Digital Camera" },
+  { emoji: "🎬", name: "Film Camera" },
+  { emoji: "📹", name: "Camcorder" },
+  { emoji: "🚁", name: "Drone" },
+  { emoji: "📸🎥", name: "Camera & Video" },
+  { emoji: "🖼️", name: "Picture Frame" },
+  { emoji: "🖨️", name: "Printer" },
+  { emoji: "💾", name: "Storage" },
+  { emoji: "☀️", name: "Sunlight" },
+  { emoji: "💡", name: "Light Bulb" },
+  { emoji: "🔦", name: "Flashlight" },
+  { emoji: "🎭", name: "Theater Masks" },
+  { emoji: "🎨", name: "Artist Palette" },
+  { emoji: "🖌️", name: "Paintbrush" },
+  { emoji: "📐", name: "Triangular Ruler" },
+  { emoji: "📏", name: "Straight Ruler" },
+  { emoji: "🏠", name: "House" },
+  { emoji: "🏢", name: "Office Building" },
+  { emoji: "🏖️", name: "Beach" },
+  { emoji: "🌅", name: "Sunrise" },
+  { emoji: "🌇", name: "Sunset" },
+  { emoji: "🌆", name: "Cityscape" },
+  { emoji: "🌃", name: "Night Scene" },
+  { emoji: "🌊", name: "Ocean Wave" },
+  { emoji: "⛰️", name: "Mountain" },
+  { emoji: "🌲", name: "Evergreen Tree" },
+  { emoji: "🌸", name: "Cherry Blossom" },
+  { emoji: "🌺", name: "Hibiscus" },
+  { emoji: "🌻", name: "Sunflower" },
+  { emoji: "🌷", name: "Tulip" },
+  { emoji: "🌹", name: "Rose" },
+  { emoji: "💐", name: "Bouquet" },
+  { emoji: "🎂", name: "Birthday Cake" },
+  { emoji: "🍰", name: "Shortcake" },
+  { emoji: "🎉", name: "Party Popper" },
+  { emoji: "🎊", name: "Confetti Ball" },
+  { emoji: "🎈", name: "Balloon" },
+  { emoji: "🎁", name: "Wrapped Gift" },
+  { emoji: "💍", name: "Ring" },
+  { emoji: "👰", name: "Bride" },
+  { emoji: "🤵", name: "Groom" },
+  { emoji: "👶", name: "Baby" },
+  { emoji: "👨‍👩‍👧‍👦", name: "Family" },
+  { emoji: "👨‍💼", name: "Business Person" },
+  { emoji: "👩‍💼", name: "Business Woman" },
+  { emoji: "🎓", name: "Graduation Cap" },
+  { emoji: "🏆", name: "Trophy" },
+  { emoji: "🥇", name: "Gold Medal" },
+  { emoji: "🏅", name: "Sports Medal" },
+  { emoji: "🎖️", name: "Military Medal" },
+  { emoji: "📜", name: "Scroll" },
+  { emoji: "📋", name: "Clipboard" },
+  { emoji: "📝", name: "Memo" },
+  { emoji: "✏️", name: "Pencil" },
+  { emoji: "✒️", name: "Black Nib" },
+  { emoji: "🖊️", name: "Pen" },
+  { emoji: "🖋️", name: "Fountain Pen" },
+  { emoji: "📌", name: "Pushpin" },
+  { emoji: "📍", name: "Round Pushpin" },
+  { emoji: "🗂️", name: "Card Index Dividers" },
+  { emoji: "📁", name: "File Folder" },
+  { emoji: "📂", name: "Open File Folder" },
+  { emoji: "🗃️", name: "Card File Box" },
+  { emoji: "🗄️", name: "File Cabinet" },
+  { emoji: "📊", name: "Bar Chart" },
+  { emoji: "📈", name: "Trending Up" },
+  { emoji: "📉", name: "Trending Down" },
+  { emoji: "📋", name: "Clipboard" },
+  { emoji: "📌", name: "Pushpin" },
+  { emoji: "🔍", name: "Magnifying Glass" },
+  { emoji: "🔎", name: "Magnifying Glass Tilted Right" },
+  { emoji: "🔬", name: "Microscope" },
+  { emoji: "🔭", name: "Telescope" },
+  { emoji: "📡", name: "Satellite Antenna" },
+  { emoji: "🛰️", name: "Satellite" },
+  { emoji: "🚁", name: "Helicopter" },
+  { emoji: "✈️", name: "Airplane" },
+  { emoji: "🚀", name: "Rocket" },
+  { emoji: "🛸", name: "Flying Saucer" },
+  { emoji: "🎯", name: "Direct Hit" },
+  { emoji: "🎪", name: "Circus Tent" },
+  { emoji: "🎨", name: "Artist Palette" },
+  { emoji: "🎭", name: "Performing Arts" },
+  { emoji: "🎪", name: "Circus Tent" },
+  { emoji: "🎫", name: "Admission Tickets" },
+  { emoji: "🎟️", name: "Admission Tickets" },
+  { emoji: "🎠", name: "Carousel Horse" },
+  { emoji: "🎡", name: "Ferris Wheel" },
+  { emoji: "🎢", name: "Roller Coaster" },
+  { emoji: "🎰", name: "Slot Machine" },
+  { emoji: "🎲", name: "Game Die" },
+  { emoji: "🃏", name: "Joker" },
+  { emoji: "🀄", name: "Mahjong Red Dragon" },
+  { emoji: "🎴", name: "Flower Playing Cards" },
+  { emoji: "🎮", name: "Video Game" },
+  { emoji: "🕹️", name: "Joystick" },
+  { emoji: "🎯", name: "Direct Hit" },
+  { emoji: "🎳", name: "Bowling" },
+  { emoji: "🎪", name: "Circus Tent" },
+  { emoji: "🎭", name: "Performing Arts" },
+  { emoji: "🎨", name: "Artist Palette" },
+  { emoji: "🎬", name: "Clapper Board" },
+  { emoji: "🎤", name: "Microphone" },
+  { emoji: "🎧", name: "Headphone" },
+  { emoji: "🎵", name: "Musical Note" },
+  { emoji: "🎶", name: "Musical Notes" },
+  { emoji: "🎼", name: "Musical Score" },
+  { emoji: "🎹", name: "Musical Keyboard" },
+  { emoji: "🥁", name: "Drum" },
+  { emoji: "🎷", name: "Saxophone" },
+  { emoji: "🎺", name: "Trumpet" },
+  { emoji: "🎸", name: "Guitar" },
+  { emoji: "🪕", name: "Banjo" },
+  { emoji: "🎻", name: "Violin" },
+  { emoji: "🪗", name: "Accordion" },
+  { emoji: "🎲", name: "Game Die" },
+  { emoji: "🎯", name: "Direct Hit" },
+  { emoji: "🎳", name: "Bowling" },
+  { emoji: "🎮", name: "Video Game" },
+  { emoji: "🕹️", name: "Joystick" },
+  { emoji: "🎰", name: "Slot Machine" },
+  { emoji: "🃏", name: "Joker" },
+  { emoji: "🀄", name: "Mahjong Red Dragon" },
+  { emoji: "🎴", name: "Flower Playing Cards" },
+  { emoji: "🎲", name: "Game Die" },
+  { emoji: "🎯", name: "Direct Hit" },
+  { emoji: "🎳", name: "Bowling" },
+  { emoji: "🎪", name: "Circus Tent" },
+  { emoji: "🎭", name: "Performing Arts" },
+  { emoji: "🎨", name: "Artist Palette" },
+  { emoji: "🎬", name: "Clapper Board" },
+  { emoji: "🎤", name: "Microphone" },
+  { emoji: "🎧", name: "Headphone" },
+  { emoji: "🎵", name: "Musical Note" },
+  { emoji: "🎶", name: "Musical Notes" },
+  { emoji: "🎼", name: "Musical Score" },
+  { emoji: "🎹", name: "Musical Keyboard" },
+  { emoji: "🥁", name: "Drum" },
+  { emoji: "🎷", name: "Saxophone" },
+  { emoji: "🎺", name: "Trumpet" },
+  { emoji: "🎸", name: "Guitar" },
+  { emoji: "🪕", name: "Banjo" },
+  { emoji: "🎻", name: "Violin" },
+  { emoji: "🪗", name: "Accordion" }
+];
+
 export default function ServiceModal({
   open,
   initial,
@@ -31,6 +181,7 @@ export default function ServiceModal({
   onSave: (svc: Service) => void;
   onDelete?: (id: string) => void;
 }){
+  const [iconDropdownOpen, setIconDropdownOpen] = useState(false);
   const [draft, setDraft] = useState<Service>({
     id: initial?.id || crypto.randomUUID(),
     name: initial?.name || "",
@@ -95,11 +246,59 @@ export default function ServiceModal({
           </label>
           <label className="text-sm">
             <div className="mb-1">Icon</div>
-            <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" value={draft.icon} onChange={e=>setDraft({...draft, icon:e.target.value})}/>
+            <div className="relative">
+              <button
+                type="button"
+                className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
+                onClick={() => setIconDropdownOpen(!iconDropdownOpen)}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-lg">{draft.icon}</span>
+                  <span className="text-gray-500">
+                    {PHOTOGRAPHY_ICONS.find(icon => icon.emoji === draft.icon)?.name || "Select Icon"}
+                  </span>
+                </span>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${iconDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {iconDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--border)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="p-2">
+                    <div className="grid grid-cols-6 gap-2">
+                      {PHOTOGRAPHY_ICONS.map((icon, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={`p-2 rounded-lg text-center hover:bg-gray-50 transition-colors ${
+                            draft.icon === icon.emoji ? 'bg-[#e9f9f0] border border-[#b7e7cc]' : ''
+                          }`}
+                          onClick={() => {
+                            setDraft({...draft, icon: icon.emoji});
+                            setIconDropdownOpen(false);
+                          }}
+                          title={icon.name}
+                        >
+                          <div className="text-lg mb-1">{icon.emoji}</div>
+                          <div className="text-xs text-gray-600 truncate">{icon.name}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </label>
           <label className="text-sm">
             <div className="mb-1">Service Price</div>
-            <input type="number" className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" value={draft.cost} onChange={e=>setDraft({...draft, cost:e.target.value})}/>
+            <input 
+              type="number" 
+              step="0.01"
+              min="0"
+              className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" 
+              value={draft.cost.replace('$', '')} 
+              onChange={e=>setDraft({...draft, cost: e.target.value})}
+              placeholder="0.00"
+            />
           </label>
           <label className="text-sm">
             <div className="mb-1">Duration</div>
@@ -127,7 +326,7 @@ export default function ServiceModal({
                 <label
                   htmlFor="status-toggle"
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                    draft.status === "Active" ? 'bg-green-500' : 'bg-gray-300'
+                    draft.status === "Active" ? 'bg-[#b7e7cc]' : 'bg-gray-300'
                   }`}
                 >
                   <span
@@ -157,7 +356,7 @@ export default function ServiceModal({
                   <label
                     htmlFor="display-price-toggle"
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                      draft.displayPrice ? 'bg-green-500' : 'bg-gray-300'
+                      draft.displayPrice ? 'bg-[#b7e7cc]' : 'bg-gray-300'
                     }`}
                   >
                     <span
@@ -187,7 +386,7 @@ export default function ServiceModal({
                   <label
                     htmlFor="product-active-toggle"
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                      draft.active ? 'bg-green-500' : 'bg-gray-300'
+                      draft.active ? 'bg-[#b7e7cc]' : 'bg-gray-300'
                     }`}
                   >
                     <span
@@ -222,7 +421,13 @@ export default function ServiceModal({
               <button className="px-3 py-2 rounded-xl bg-red-600 text-white text-sm" onClick={()=>onDelete(draft.id)}>Delete</button>
             )}
             <button className="btn" onClick={onClose}>Close</button>
-            <button className="btn" onClick={()=>onSave(draft)}>Update Service</button>
+            <button 
+              className="px-4 py-2 text-white rounded-lg transition-colors"
+              style={{ backgroundColor: '#b7e7cc' }}
+              onClick={()=>onSave(draft)}
+            >
+              {initial?.id ? "Update Service" : "Create Service"}
+            </button>
           </div>
         </div>
       </div>

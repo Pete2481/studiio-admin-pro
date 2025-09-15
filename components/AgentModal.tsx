@@ -129,9 +129,9 @@ export default function AgentModal({ isOpen, onClose, companyId, agent, onSucces
       let result;
       
       if (isEditing && agent) {
-        result = await updateAgentMutation.mutate("studiio-pro", agent.id, formData);
+        result = await updateAgentMutation.mutate(agent.id, formData);
       } else {
-        result = await createAgentMutation.mutate("studiio-pro", companyId, formData);
+        result = await createAgentMutation.mutate(formData);
       }
 
       if (result?.ok) {

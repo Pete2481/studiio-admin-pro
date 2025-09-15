@@ -3,11 +3,12 @@ import { updateContentBlock, deleteContentBlock } from '@/src/server/actions/new
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const result = await updateContentBlock(params.id, body);
+    const result = await updateContentBlock(id, body);
     
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -22,10 +23,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await deleteContentBlock(params.id);
+    const { id } = await params;
+    const result = await deleteContentBlock(id);
     
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });

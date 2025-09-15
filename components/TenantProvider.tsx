@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -21,13 +21,37 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { data: session, status } = useSession();
+  // Temporarily remove session dependency to test
+  // const { data: session, status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   
-  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
-  const [availableTenants, setAvailableTenants] = useState<Tenant[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Mock tenants for development (remove this in production)
+  const mockTenants = [
+    {
+      id: "cmfkr33ls000113jn88rtdaih",
+      name: "Business Media Drive",
+      slug: "business-media-drive",
+      role: "MASTER_ADMIN",
+    },
+  ];
+
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(mockTenants[0]); // Use business-media-drive as default
+  const [availableTenants, setAvailableTenants] = useState<Tenant[]>(mockTenants);
+
+  // Sync with URL parameter
+  useEffect(() => {
+    const tenantFromPath = extractTenantFromPath(pathname);
+    if (tenantFromPath) {
+      const tenant = availableTenants.find(t => t.slug === tenantFromPath);
+      if (tenant && tenant.slug !== currentTenant?.slug) {
+        setCurrentTenant(tenant);
+      }
+    }
+  }, [pathname, availableTenants, currentTenant?.slug]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Debug logging removed to prevent unnecessary re-renders
 
   // Extract tenant from URL path
   const extractTenantFromPath = (path: string): string | null => {
@@ -35,58 +59,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return match ? match[1] : null;
   };
 
-  // Set current tenant based on URL or first available tenant
-  useEffect(() => {
-    if (status === "loading") return;
+  // Tenant data is now set immediately in useState above
 
-    // Mock tenants for development (remove this in production)
-    const mockTenants = [
-      {
-        id: "1",
-        name: "Studiio Pro",
-        slug: "studiio-pro",
-        role: "SUB_ADMIN",
-      },
-      {
-        id: "2",
-        name: "Photo Studio",
-        slug: "photo-studio",
-        role: "MASTER_ADMIN",
-      },
-    ];
-
-    if (!session?.user?.tenants || session.user.tenants.length === 0) {
-      // Use mock tenants for development
-      setAvailableTenants(mockTenants);
-      setCurrentTenant(mockTenants[0]);
-      setIsLoading(false);
-      return;
-    }
-
-    const tenants = session.user.tenants;
-    setAvailableTenants(tenants);
-
-    // Check if current path has a tenant
-    const pathTenantSlug = extractTenantFromPath(pathname);
-    
-    if (pathTenantSlug) {
-      // Find tenant in user's tenants
-      const tenant = tenants.find(t => t.slug === pathTenantSlug);
-      if (tenant) {
-        setCurrentTenant(tenant);
-      } else {
-        // User doesn't have access to this tenant, redirect to first available
-        router.push(`/t/${tenants[0].slug}` as any);
-      }
-    } else {
-      // No tenant in path, set to first available tenant
-      setCurrentTenant(tenants[0]);
-    }
-
-    setIsLoading(false);
-  }, [session, status, pathname, router]);
-
-  const switchTenant = (tenantSlug: string) => {
+  const switchTenant = useCallback((tenantSlug: string) => {
     const tenant = availableTenants.find(t => t.slug === tenantSlug);
     if (tenant) {
       setCurrentTenant(tenant);
@@ -99,14 +74,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         router.push(`/t/${tenantSlug}` as any);
       }
     }
-  };
+  }, [availableTenants, pathname, router]);
 
-  const value: TenantContextType = {
+  const value: TenantContextType = useMemo(() => ({
     currentTenant,
     availableTenants,
     switchTenant,
-    isLoading: status === "loading" || isLoading,
-  };
+    isLoading: isLoading,
+  }), [currentTenant, availableTenants, isLoading]);
 
   return (
     <TenantContext.Provider value={value}>

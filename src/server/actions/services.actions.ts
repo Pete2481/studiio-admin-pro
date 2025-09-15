@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers";
 import { ServicesRepository } from "@/src/server/repos/services.repo";
 import { CreateServiceSchema, UpdateServiceSchema, ActionResult } from "@/src/server/repos/types";
+import { prisma } from "@/lib/prisma";
 
 const servicesRepo = new ServicesRepository();
 
-export async function createService(tenantId: string, data: any): Promise<ActionResult> {
+export async function createService(tenantSlug: string, data: any): Promise<ActionResult> {
   try {
     // Temporarily disable authentication for testing
     // const user = await getCurrentUser();
@@ -20,10 +21,19 @@ export async function createService(tenantId: string, data: any): Promise<Action
     //   return { ok: false, error: "Insufficient permissions" };
     // }
 
-    const result = await servicesRepo.create(tenantId, data, "test-user-id");
+    // Get the actual tenant ID from the slug
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug }
+    });
+
+    if (!tenant) {
+      return { ok: false, error: "Tenant not found" };
+    }
+
+    const result = await servicesRepo.create(tenant.id, data, "cmfddbqg4000012snce1yz7a4");
     
     if (result.ok) {
-      revalidatePath(`/t/${tenantId}/services`);
+      revalidatePath(`/t/${tenantSlug}/services`);
       revalidatePath(`/services`);
     }
     
@@ -34,7 +44,7 @@ export async function createService(tenantId: string, data: any): Promise<Action
   }
 }
 
-export async function updateService(tenantId: string, serviceId: string, data: any): Promise<ActionResult> {
+export async function updateService(tenantSlug: string, serviceId: string, data: any): Promise<ActionResult> {
   try {
     // Temporarily disable authentication for testing
     // const user = await getCurrentUser();
@@ -47,10 +57,19 @@ export async function updateService(tenantId: string, serviceId: string, data: a
     //   return { ok: false, error: "Insufficient permissions" };
     // }
 
-    const result = await servicesRepo.update(tenantId, serviceId, data, "test-user-id");
+    // Get the actual tenant ID from the slug
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug }
+    });
+
+    if (!tenant) {
+      return { ok: false, error: "Tenant not found" };
+    }
+
+    const result = await servicesRepo.update(tenant.id, serviceId, data, "cmfddbqg4000012snce1yz7a4");
     
     if (result.ok) {
-      revalidatePath(`/t/${tenantId}/services`);
+      revalidatePath(`/t/${tenantSlug}/services`);
       revalidatePath(`/services`);
     }
     
@@ -61,7 +80,7 @@ export async function updateService(tenantId: string, serviceId: string, data: a
   }
 }
 
-export async function deleteService(tenantId: string, serviceId: string): Promise<ActionResult> {
+export async function deleteService(tenantSlug: string, serviceId: string): Promise<ActionResult> {
   try {
     // Temporarily disable authentication for testing
     // const user = await getCurrentUser();
@@ -74,10 +93,19 @@ export async function deleteService(tenantId: string, serviceId: string): Promis
     //   return { ok: false, error: "Insufficient permissions" };
     // }
 
-    const result = await servicesRepo.delete(tenantId, serviceId, "test-user-id");
+    // Get the actual tenant ID from the slug
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug }
+    });
+
+    if (!tenant) {
+      return { ok: false, error: "Tenant not found" };
+    }
+
+    const result = await servicesRepo.delete(tenant.id, serviceId, "cmfddbqg4000012snce1yz7a4");
     
     if (result.ok) {
-      revalidatePath(`/t/${tenantId}/services`);
+      revalidatePath(`/t/${tenantSlug}/services`);
       revalidatePath(`/services`);
     }
     
@@ -88,7 +116,7 @@ export async function deleteService(tenantId: string, serviceId: string): Promis
   }
 }
 
-export async function toggleServiceFavorite(tenantId: string, serviceId: string): Promise<ActionResult> {
+export async function toggleServiceFavorite(tenantSlug: string, serviceId: string): Promise<ActionResult> {
   try {
     // Temporarily disable authentication for testing
     // const user = await getCurrentUser();
@@ -101,10 +129,19 @@ export async function toggleServiceFavorite(tenantId: string, serviceId: string)
     //   return { ok: false, error: "Insufficient permissions" };
     // }
 
-    const result = await servicesRepo.toggleFavorite(tenantId, serviceId, "test-user-id");
+    // Get the actual tenant ID from the slug
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug }
+    });
+
+    if (!tenant) {
+      return { ok: false, error: "Tenant not found" };
+    }
+
+    const result = await servicesRepo.toggleFavorite(tenant.id, serviceId, "cmfddbqg4000012snce1yz7a4");
     
     if (result.ok) {
-      revalidatePath(`/t/${tenantId}/services`);
+      revalidatePath(`/t/${tenantSlug}/services`);
       revalidatePath(`/services`);
       revalidatePath(`/calendar`); // Revalidate calendar for quick booking updates
     }
@@ -116,7 +153,7 @@ export async function toggleServiceFavorite(tenantId: string, serviceId: string)
   }
 }
 
-export async function getServices(tenantId: string, options?: {
+export async function getServices(tenantSlug: string, options?: {
   isActive?: boolean;
   favorite?: boolean;
   search?: string;
@@ -135,7 +172,16 @@ export async function getServices(tenantId: string, options?: {
     //   return { ok: false, error: "Insufficient permissions" };
     // }
 
-    const result = await servicesRepo.list(tenantId, options);
+    // Get the actual tenant ID from the slug
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug }
+    });
+
+    if (!tenant) {
+      return { ok: false, error: "Tenant not found" };
+    }
+
+    const result = await servicesRepo.list(tenant.id, options);
     return { ok: true, data: result };
   } catch (error) {
     console.error("Failed to get services:", error);

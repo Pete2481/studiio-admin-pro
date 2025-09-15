@@ -1,0 +1,1252 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Sidebar from "@/components/Sidebar";
+import { Search, Facebook, Twitter, Settings, Youtube, Plus, ArrowLeft, Edit, X, Phone, Mail, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useTenant } from "@/components/TenantProvider";
+import { useCompany, useCompanyAgents, useUpdateCompany, type Company, type Agent } from "@/src/client/api/companies";
+
+// Map mock IDs to real company IDs
+const getCompanyIdFromMock = (mockId: string): string => {
+  switch (mockId) {
+    case "mock-1": return "company-hinterland";
+    case "mock-2": return "company-drift";
+    case "mock-3": return "company-belle";
+    default: return mockId; // If it's already a real ID, return as-is
+  }
+};
+
+const mockCompanies = [
+  "Sotheby's Byron Bay",
+  "Luxury Property Group",
+  "Elite Marketing Solutions",
+  "Premium Development Co",
+  "Exclusive Events Ltd",
+  "Luxury Travel Agency",
+  "Premium Consulting Group",
+  "Elite Financial Services",
+  "Luxury Retail Chain",
+  "Premium Tech Solutions",
+  "Exclusive Design Studio",
+  "Luxury Hospitality Group"
+];
+
+export default function CompanyProfilePage() {
+  const params = useParams();
+  const router = useRouter();
+  const { currentTenant } = useTenant();
+  const [id, setId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("profile");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [showBannerModal, setShowBannerModal] = useState(false);
+  const [tempBanner, setTempBanner] = useState<string | null>(null);
+  const bannerInputRef = useRef<HTMLInputElement | null>(null);
+  const modalInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  // Logo state
+  const [showLogoModal, setShowLogoModal] = useState(false);
+  const [tempLogo, setTempLogo] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [showLogoSuccessMessage, setShowLogoSuccessMessage] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Database hooks
+  const { company, isLoading: companyLoading, error: companyError, fetch: fetchCompany } = useCompany();
+  const { agents, isLoading: agentsLoading, error: agentsError, fetch: fetchAgents } = useCompanyAgents();
+  const { mutate: updateCompany, isLoading: updateLoading } = useUpdateCompany();
+
+  // Get id from params
+  useEffect(() => {
+    if (params.id) {
+      setId(params.id as string);
+    }
+  }, [params.id]);
+
+  // Fetch company data from database
+  useEffect(() => {
+    const companyId = id || params.id;
+    if (!companyId) return;
+    
+    const realCompanyId = getCompanyIdFromMock(companyId as string);
+    console.log(`🔍 Fetching company data for: ${realCompanyId}`);
+    
+    fetchCompany(realCompanyId);
+  }, [id, params.id, fetchCompany]);
+
+  // Fetch agents for the company
+  useEffect(() => {
+    const companyId = id || params.id;
+    if (!companyId) return;
+    
+    const realCompanyId = getCompanyIdFromMock(companyId as string);
+    console.log(`🔍 Fetching agents for company: ${realCompanyId}`);
+    
+    fetchAgents(realCompanyId);
+  }, [id, params.id, fetchAgents]);
+
+  // Load saved banner and logo from localStorage (keep for now as these are UI-only)
+  useEffect(()=>{
+    const companyId = id || params.id;
+    if (!companyId) return;
+    try {
+      const saved = localStorage.getItem(`studiio.company.banner.${companyId}`);
+      if (saved) setBannerUrl(saved);
+    } catch {}
+  },[id, params.id]);
+
+  useEffect(()=>{
+    const companyId = id || params.id;
+    if (!companyId) return;
+    try {
+      const saved = localStorage.getItem(`studiio.company.logo.${companyId}`);
+      if (saved) setLogoUrl(saved);
+    } catch (error) {
+      console.error('Error loading logo:', error);
+    }
+  },[id, params.id]);
+
+  // Parse permissions from JSON string
+  const parsePermissions = (permissionsString?: string) => {
+    if (!permissionsString) {
+      return {
+        viewCalendar: true,
+        viewBlankedBookings: true,
+        viewInvoice: true,
+        viewService: true
+      };
+    }
+    try {
+      return JSON.parse(permissionsString);
+    } catch {
+      return {
+        viewCalendar: true,
+        viewBlankedBookings: true,
+        viewInvoice: true,
+        viewService: true
+      };
+    }
+  };
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    status: "Active" as "Active" | "Inactive",
+    company: ""
+  });
+
+  // Filter agents based on search query
+  const filteredAgents = agents.filter(agent =>
+    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    agent.role.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleEditAgent = (agent: Agent) => {
+    setEditingAgent(agent);
+    setFormData({
+      name: agent.name,
+      email: agent.email || "",
+      phone: agent.phone || "",
+      status: agent.isActive ? "Active" : "Inactive",
+      company: agent.company?.name || ""
+    });
+    setIsAddingNew(false);
+    setShowEditModal(true);
+  };
+
+  const handleAddAgent = () => {
+    setEditingAgent(null);
+    setFormData({
+      name: "",
+      email: "",
+      phone: "",
+      status: "Active",
+      company: mockCompanies[0]
+    });
+    setIsAddingNew(true);
+    setShowEditModal(true);
+  };
+
+  const handleCall = (agent: Agent) => {
+    console.log("Call agent:", agent.phone);
+  };
+
+  const handleEmail = (agent: Agent) => {
+    console.log("Email agent:", agent.email);
+  };
+
+  const handleDelete = (agent: Agent) => {
+    console.log("Delete agent:", agent);
+  };
+
+  const handleCloseModal = () => {
+    setShowEditModal(false);
+    setEditingAgent(null);
+    setIsAddingNew(false);
+  };
+
+  const handleSave = () => {
+    if (isAddingNew) {
+      // Handle adding new agent
+      console.log("Adding new agent:", formData);
+    } else {
+      // Handle updating existing agent
+      console.log("Updating agent:", editingAgent?.id, formData);
+    }
+    handleCloseModal();
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Save company data to database
+  const handleSaveCompanyData = async () => {
+    if (!company) return;
+    
+    try {
+      const result = await updateCompany(company.id, {
+        name: company.name,
+        type: company.type,
+        phone: company.phone,
+        email: company.email,
+        invoiceEmails: company.invoiceEmails,
+        password: company.password,
+        logoUrl: company.logoUrl,
+        isActive: company.isActive,
+        propertiesCount: company.propertiesCount,
+        clientsCount: company.clientsCount,
+        salesVolume: company.salesVolume,
+        permissions: company.permissions,
+        sendWelcomeEmail: company.sendWelcomeEmail,
+      });
+
+      if (result.ok) {
+        alert('Company data saved successfully!');
+        // Refresh company data
+        fetchCompany(company.id);
+      } else {
+        alert(`Failed to save company data: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to save company data:', error);
+      alert('Failed to save company data. Please try again.');
+    }
+  };
+
+  // Update company data field
+  const updateCompanyData = (field: string, value: any) => {
+    if (!company) return;
+    
+    // Update the company object directly (this will trigger a re-render)
+    // In a real app, you'd want to use a state management solution
+    console.log(`Updating company field ${field} to:`, value);
+  };
+
+  // Update permissions
+  const updatePermission = (permission: string, value: boolean) => {
+    if (!company) return;
+    
+    const currentPermissions = parsePermissions(company.permissions);
+    const updatedPermissions = {
+      ...currentPermissions,
+      [permission]: value
+    };
+    
+    console.log(`Updating permission ${permission} to:`, value);
+  };
+
+  return (
+    <div>
+      <Sidebar />
+      <div className="lg:ml-16 min-h-screen bg-gray-50 transition-all duration-300">
+        {/* Top Navigation */}
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => router.push(`/t/${currentTenant?.slug}/admin/clients/companies`)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Companies</span>
+              </button>
+            </div>
+            <div className="text-sm text-gray-500">
+              Companies • Edit Company Profile
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full p-6">
+          {/* Company Profile Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+            {/* Banner */}
+            <div
+              className="h-80 rounded-t-lg relative"
+              style={
+                bannerUrl
+                  ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                  : { backgroundImage: "linear-gradient(to right, #2dd4bf, #f9a8d4, #fdba74)" }
+              }
+            >
+              {!bannerUrl && (
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-400/20 via-pink-300/20 to-orange-300/20" />
+              )}
+              {/* Reduced fade height so more of the banner image is visible down to the red line area */}
+              <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+              <button
+                className="absolute right-4 top-4 px-3 py-1 text-sm border border-gray-300 rounded-lg bg-white/80 backdrop-blur hover:bg-white"
+                onClick={()=> setShowBannerModal(true)}
+              >
+                Banner
+              </button>
+              {/* hidden input kept for modal control */}
+              <input type="file" accept="image/*" ref={bannerInputRef} className="hidden" />
+            </div>
+
+            {/* Profile Info */}
+            <div className="px-6 pb-6 relative">
+              {/* Profile Picture */}
+              <div className="flex justify-center -mt-20 mb-4">
+                <div className="relative group">
+                  <div className="h-32 w-32 rounded-full bg-gray-200 border-4 border-white shadow-lg flex items-center justify-center text-4xl overflow-hidden">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Company Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>🏢</span>
+                    )}
+                  </div>
+                  <button
+                    className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#e9f9f0] border-2 border-white rounded-full flex items-center justify-center text-gray-600 hover:bg-[#b7e7cc] transition-colors opacity-0 group-hover:opacity-100"
+                    onClick={() => setShowLogoModal(true)}
+                    title="Edit Logo"
+                  >
+                    ✏️
+                  </button>
+                </div>
+              </div>
+
+              {/* Company Name and Category */}
+              <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {companyLoading ? "Loading..." : company?.name || "Company Name"}
+                </h1>
+                <p className="text-lg text-gray-600">
+                  {companyLoading ? "Loading..." : company?.type || "Company Type"}
+                </p>
+              </div>
+
+              {/* Stats */}
+              <div className="flex justify-center mb-6">
+                <div className="grid grid-cols-3 gap-8 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {companyLoading ? "..." : company?.propertiesCount || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">Properties</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {companyLoading ? "..." : company?.clientsCount || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">Clients</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {companyLoading ? "..." : company?.salesVolume || "$0"}
+                    </div>
+                    <div className="text-sm text-gray-600">Sales Volume</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Removed social icons and actions; Banner upload button is on the banner. */}
+
+              {/* Navigation Tabs */}
+              <div className="border-b border-gray-200">
+                <nav className="flex justify-center space-x-8">
+                  <button
+                    onClick={() => setActiveTab("profile")}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === "profile"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Profile
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("followers")}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === "followers"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Followers
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("agents")}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === "agents"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Agents
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("gallery")}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === "gallery"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    Gallery
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+
+          {/* Agents Section */}
+          {activeTab === "agents" && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Agents {agentsLoading ? "..." : agents.length}
+                  </h2>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                      <input
+                        type="text"
+                        placeholder="Search Agents"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button 
+                      onClick={handleAddAgent}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
+                    >
+                      <Plus size={16} />
+                      Add Agent
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {agentsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="text-gray-500">Loading agents...</div>
+                  </div>
+                ) : agentsError ? (
+                  <div className="text-center py-8">
+                    <div className="text-red-500">Error loading agents: {agentsError}</div>
+                  </div>
+                ) : filteredAgents.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="text-gray-500">No agents found</div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredAgents.map((agent) => (
+                      <div key={agent.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow relative min-h-[140px] flex flex-col">
+                        {/* Edit Icon - Top Right */}
+                        <button
+                          onClick={() => handleEditAgent(agent)}
+                          className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        >
+                          <Edit size={16} />
+                        </button>
+
+                        {/* Profile Picture and Info */}
+                        <div className="flex items-start space-x-3 mb-4">
+                          <div className="flex-shrink-0">
+                            <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-2xl overflow-hidden">
+                              {agent.profileImage && agent.profileImage.startsWith('http') ? (
+                                <img 
+                                  src={agent.profileImage} 
+                                  alt={agent.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement!.textContent = '👨‍💼';
+                                  }}
+                                />
+                              ) : (
+                                <span>{agent.profileImage || "👨‍💼"}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900 truncate">{agent.name}</h3>
+                            <p className="text-xs text-gray-600 truncate">{agent.role}</p>
+                            <p className="text-xs text-gray-500 truncate">Client: {agent.company?.name}</p>
+                          </div>
+                        </div>
+
+                        {/* Action Icons - Bottom */}
+                        <div className="flex items-center justify-center mt-auto pt-2">
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleEmail(agent)}
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                              title="Email"
+                            >
+                              <Mail size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleCall(agent)}
+                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                              title="Call"
+                            >
+                              <Phone size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleEditAgent(agent)}
+                              className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors"
+                              title="Edit"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(agent)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Profile Tab Content */}
+          {activeTab === "profile" && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Company Information</h2>
+              {companyLoading ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-500">Loading company information...</div>
+                </div>
+              ) : companyError ? (
+                <div className="text-center py-8">
+                  <div className="text-red-500">Error loading company: {companyError}</div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="text-sm">
+                    <div className="mb-1">Name</div>
+                    <input 
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" 
+                      placeholder="Company name" 
+                      value={company?.name || ""}
+                      onChange={(e) => updateCompanyData('name', e.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <div className="mb-1">Type</div>
+                    <input 
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" 
+                      placeholder="Company type" 
+                      value={company?.type || ""}
+                      onChange={(e) => updateCompanyData('type', e.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <div className="mb-1">Phone</div>
+                    <input 
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" 
+                      placeholder="Enter phone number" 
+                      value={company?.phone || ""}
+                      onChange={(e) => updateCompanyData('phone', e.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <div className="mb-1">E-mail</div>
+                    <input 
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" 
+                      placeholder="Enter email" 
+                      value={company?.email || ""}
+                      onChange={(e) => updateCompanyData('email', e.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm md:col-span-2">
+                    <div className="mb-1">Invoice Emails</div>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" 
+                        placeholder="Invoice email" 
+                        value={company?.invoiceEmails || ""}
+                        onChange={(e) => updateCompanyData('invoiceEmails', e.target.value)}
+                      />
+                      <button className="px-2 py-1 rounded bg-teal-600 text-white text-xs">+</button>
+                    </div>
+                  </label>
+                  <label className="text-sm">
+                    <div className="mb-1">Password</div>
+                    <input 
+                      type="password" 
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" 
+                      placeholder="Enter password" 
+                      value={company?.password || ""}
+                      onChange={(e) => updateCompanyData('password', e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                  <div className="text-sm font-medium mb-2">Image Logo</div>
+                  <input type="file" />
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <span className="text-sm">Active</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={company?.isActive || false}
+                      onChange={(e) => updateCompanyData('isActive', e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-teal-600 after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:h-4 after:w-4 after:rounded-full after:transition-all peer-checked:after:translate-x-5"></div>
+                  </label>
+                </div>
+              </div>
+
+              {company && (
+                <>
+                  <div className="mt-6">
+                    <div className="text-sm font-semibold mb-2">Permission</div>
+                    <div className="divide-y border rounded-lg">
+                      {[
+                        { key: "viewCalendar", label: "View Calendar" },
+                        { key: "viewBlankedBookings", label: "View Blanked out Bookings" },
+                        { key: "viewInvoice", label: "View Invoice" },
+                        { key: "viewService", label: "View Service" },
+                      ].map(({ key, label }) => {
+                        const permissions = parsePermissions(company.permissions);
+                        return (
+                          <label key={key} className="flex items-center justify-between px-4 py-3 text-sm">
+                            <span>{label}</span>
+                            <input 
+                              type="checkbox" 
+                              checked={permissions[key as keyof typeof permissions] || false}
+                              onChange={(e) => updatePermission(key, e.target.checked)}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4">
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input 
+                        type="checkbox" 
+                        checked={company.sendWelcomeEmail}
+                        onChange={(e) => updateCompanyData('sendWelcomeEmail', e.target.checked)}
+                      />
+                      Send welcome email
+                    </label>
+                    <div className="flex gap-2">
+                      <button className="px-4 py-2 bg-gray-600 text-white rounded-lg">Cancel</button>
+                      <button 
+                        className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                        onClick={handleSaveCompanyData}
+                        disabled={updateLoading}
+                      >
+                        {updateLoading ? "Saving..." : "Save Changes"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Followers Tab Content */}
+          {activeTab === "followers" && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Followers</h2>
+              <p className="text-gray-600">Company followers will be displayed here.</p>
+            </div>
+          )}
+
+          {/* Gallery Tab Content */}
+          {activeTab === "gallery" && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Gallery</h2>
+              <p className="text-gray-600">Company gallery and media will be displayed here.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Edit Agent Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {isAddingNew ? "Add Agent" : "Edit Agent"}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {/* Profile Picture Section */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-2xl">
+                  👨‍💼
+                </div>
+                <div className="flex gap-2">
+                  <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm">
+                    Change
+                  </button>
+                  <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter agent name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter email address"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => handleInputChange("status", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <select
+                    value={formData.company}
+                    onChange={(e) => handleInputChange("company", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {mockCompanies.map((company) => (
+                      <option key={company} value={company}>
+                        {company}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={handleCloseModal}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              >
+                {isAddingNew ? "Add" : "Update"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner Upload Modal */}
+      {showBannerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-xl shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">Upload Banner Image</h3>
+              <button onClick={()=>setShowBannerModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div
+                className={`border-2 rounded-lg p-6 text-center cursor-pointer transition-all duration-200 ${
+                  isDragging 
+                    ? 'border-[#b7e7cc] border-dashed bg-[#e9f9f0]' 
+                    : tempBanner || bannerUrl 
+                      ? 'border-gray-300' 
+                      : 'border-dashed border-gray-300 hover:border-[#b7e7cc] hover:bg-[#e9f9f0]'
+                }`}
+                onDragOver={(e)=>{ e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={()=> setIsDragging(false)}
+                onDrop={(e)=>{
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (!file) return;
+                  
+                  // Validate file type
+                  if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file (JPEG, PNG, GIF, WebP)');
+                    return;
+                  }
+                  
+                  // Validate file size (5MB max)
+                  if (file.size > 5 * 1024 * 1024) {
+                    alert('File size must be less than 5MB');
+                    return;
+                  }
+                  
+                  // Compress the image before storing
+                  const canvas = document.createElement('canvas');
+                  const ctx = canvas.getContext('2d');
+                  const img = new Image();
+                  
+                  img.onload = () => {
+                    // Calculate new dimensions (max 800px width, maintain aspect ratio)
+                    const maxWidth = 800;
+                    const maxHeight = 400;
+                    let { width, height } = img;
+                    
+                    if (width > maxWidth) {
+                      height = (height * maxWidth) / width;
+                      width = maxWidth;
+                    }
+                    if (height > maxHeight) {
+                      width = (width * maxHeight) / height;
+                      height = maxHeight;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw and compress
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+                    setTempBanner(compressedDataUrl);
+                  };
+                  
+                  img.src = URL.createObjectURL(file);
+                }}
+                onClick={()=> modalInputRef.current?.click()}
+              >
+                {tempBanner || bannerUrl ? (
+                  <div className="relative">
+                    <img src={tempBanner || bannerUrl || ''} alt="Banner preview" className="w-full h-40 object-cover rounded" />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 rounded flex items-center justify-center">
+                      <span className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200 text-sm font-medium">
+                        Click to change image
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8">
+                    <div className="mx-auto w-12 h-12 mb-4 text-gray-400">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      Drag & drop an image here, or click to select
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Supports: JPEG, PNG, GIF, WebP (Max 5MB)
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={modalInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e)=>{
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    
+                    // Validate file type
+                    if (!file.type.startsWith('image/')) {
+                      alert('Please select an image file (JPEG, PNG, GIF, WebP)');
+                      return;
+                    }
+                    
+                    // Validate file size (5MB max)
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert('File size must be less than 5MB');
+                      return;
+                    }
+                    
+                    // Compress the image before storing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                      // Calculate new dimensions (max 800px width, maintain aspect ratio)
+                      const maxWidth = 800;
+                      const maxHeight = 400;
+                      let { width, height } = img;
+                      
+                      if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                      }
+                      if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                      }
+                      
+                      canvas.width = width;
+                      canvas.height = height;
+                      
+                      // Draw and compress
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+                      setTempBanner(compressedDataUrl);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button 
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors" 
+                  onClick={()=>{ 
+                    setTempBanner(null); 
+                    setShowBannerModal(false); 
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="px-4 py-2 bg-[#e9f9f0] text-black border border-[#b7e7cc] rounded-lg hover:bg-[#b7e7cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                  disabled={!tempBanner}
+                  onClick={()=>{
+                    if (tempBanner){
+                      setBannerUrl(tempBanner);
+                      try { 
+                        // Use params.id directly if id state is not set
+                        const companyId = id || params.id;
+                        if (!companyId) {
+                          alert('Company ID not found. Please refresh the page and try again.');
+                          return;
+                        }
+                        try {
+                          localStorage.setItem(`studiio.company.banner.${companyId}`, tempBanner); 
+                          setShowSuccessMessage(true);
+                          setTimeout(() => setShowSuccessMessage(false), 3000);
+                        } catch (quotaError) {
+                          // If localStorage is full, clear old banner data and try again
+                          console.warn('localStorage quota exceeded, clearing old banner data...');
+                          const keys = Object.keys(localStorage).filter(key => key.startsWith('studiio.company.banner.'));
+                          keys.forEach(key => localStorage.removeItem(key));
+                          localStorage.setItem(`studiio.company.banner.${companyId}`, tempBanner);
+                          setShowSuccessMessage(true);
+                          setTimeout(() => setShowSuccessMessage(false), 3000);
+                        }
+                      } catch (error) {
+                        console.error('Failed to save banner:', error);
+                        alert('Failed to save banner. Please try again.');
+                      }
+                    }
+                    setShowBannerModal(false);
+                  }}
+                >
+                  Save Banner
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 bg-[#e9f9f0] border border-[#b7e7cc] text-black px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2">
+          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <span className="font-medium">Banner image saved successfully!</span>
+        </div>
+      )}
+
+      {/* Logo Upload Modal */}
+      {showLogoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Upload Company Logo</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  setShowLogoModal(false);
+                  setTempLogo(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div
+                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#b7e7cc] transition-colors"
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith('image/')) {
+                    if (file.size > 2 * 1024 * 1024) {
+                      alert('File size must be less than 2MB');
+                      return;
+                    }
+                    
+                    // Compress the logo before storing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                      // Calculate new dimensions (max 200x200px for logo)
+                      const maxSize = 200;
+                      let { width, height } = img;
+                      
+                      if (width > height) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                      } else {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                      }
+                      
+                      canvas.width = width;
+                      canvas.height = height;
+                      
+                      // Draw and compress
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8); // 80% quality for logo
+                      setTempLogo(compressedDataUrl);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {tempLogo ? (
+                  <div className="relative">
+                    <img src={tempLogo} alt="Logo preview" className="w-32 h-32 object-cover rounded-full mx-auto" />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 rounded-full flex items-center justify-center">
+                      <span className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200 text-sm font-medium">
+                        Click to change logo
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-600 mb-2">Drag & drop your logo here</p>
+                    <p className="text-sm text-gray-400">or click to browse</p>
+                    <p className="text-xs text-gray-400 mt-2">Max 2MB, JPG/PNG</p>
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                ref={logoInputRef}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (!file.type.startsWith('image/')) {
+                      alert('Please select an image file');
+                      return;
+                    }
+                    // Validate file size (2MB max for logo)
+                    if (file.size > 2 * 1024 * 1024) {
+                      alert('File size must be less than 2MB');
+                      return;
+                    }
+                    
+                    // Compress the logo before storing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                      // Calculate new dimensions (max 200x200px for logo)
+                      const maxSize = 200;
+                      let { width, height } = img;
+                      
+                      if (width > height) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                      } else {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                      }
+                      
+                      canvas.width = width;
+                      canvas.height = height;
+                      
+                      // Draw and compress
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8); // 80% quality for logo
+                      setTempLogo(compressedDataUrl);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button 
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors" 
+                onClick={() => {
+                  setShowLogoModal(false);
+                  setTempLogo(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="px-4 py-2 bg-[#e9f9f0] text-black border border-[#b7e7cc] rounded-lg hover:bg-[#b7e7cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                disabled={!tempLogo}
+                onClick={()=>{
+                  if (tempLogo){
+                    setLogoUrl(tempLogo);
+                    try { 
+                      // Use params.id directly if id state is not set
+                      const companyId = id || params.id;
+                      if (!companyId) {
+                        alert('Company ID not found. Please refresh the page and try again.');
+                        return;
+                      }
+                      try {
+                        localStorage.setItem(`studiio.company.logo.${companyId}`, tempLogo); 
+                        setShowLogoSuccessMessage(true);
+                        setTimeout(() => setShowLogoSuccessMessage(false), 3000);
+                      } catch (quotaError) {
+                        // If localStorage is full, clear old logo data for THIS client only and try again
+                        console.warn('localStorage quota exceeded, clearing old logo data for this client...');
+                        localStorage.removeItem(`studiio.company.logo.${companyId}`);
+                        try {
+                          localStorage.setItem(`studiio.company.logo.${companyId}`, tempLogo);
+                          setShowLogoSuccessMessage(true);
+                          setTimeout(() => setShowLogoSuccessMessage(false), 3000);
+                        } catch (stillFullError) {
+                          // If still full, try clearing some other old data
+                          console.warn('Still full, clearing some old banner data...');
+                          const bannerKeys = Object.keys(localStorage).filter(key => key.startsWith('studiio.company.banner.'));
+                          if (bannerKeys.length > 0) {
+                            localStorage.removeItem(bannerKeys[0]); // Remove oldest banner
+                          }
+                          localStorage.setItem(`studiio.company.logo.${companyId}`, tempLogo);
+                          setShowLogoSuccessMessage(true);
+                          setTimeout(() => setShowLogoSuccessMessage(false), 3000);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Failed to save logo:', error);
+                      alert('Failed to save logo. Please try again.');
+                    }
+                  }
+                  setShowLogoModal(false);
+                }}
+              >
+                Save Logo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logo Success Message */}
+      {showLogoSuccessMessage && (
+        <div className="fixed top-4 right-4 bg-[#e9f9f0] border border-[#b7e7cc] text-black px-4 py-2 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600">✓</span>
+            <span className="font-medium">Logo saved successfully!</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

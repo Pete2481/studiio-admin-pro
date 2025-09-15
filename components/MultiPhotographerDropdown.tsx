@@ -2,30 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
+// import { usePhotographers } from "@/src/client/api/photographers";
+// import { useTenant } from "./TenantProvider";
 
 export type PhotographerOption = { id: string; name: string; role?: string; avatar?: string };
-
-const fallbackPhotographers: PhotographerOption[] = [
-  { id: "photo-1", name: "Will Phillips", role: "Luxury Property Specialist", avatar: "🤖" },
-  { id: "photo-2", name: "Sarah Johnson", role: "Marketing Director", avatar: "👧" },
-  { id: "photo-3", name: "Mike Davis", role: "Senior Photographer", avatar: "🧁" },
-  { id: "photo-4", name: "Lisa Wilson", role: "Property Specialist", avatar: "👷‍♀️" },
-  { id: "photo-5", name: "Alex Chen", role: "Drone Specialist", avatar: "🚁" },
-  { id: "photo-6", name: "Emma Rodriguez", role: "Virtual Tour Expert", avatar: "🎥" }
-];
-
-function loadPhotographers(): PhotographerOption[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem("studiio.photographers.v1");
-    if (!raw) return fallbackPhotographers;
-    const parsed = JSON.parse(raw) as PhotographerOption[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return fallbackPhotographers;
-    return parsed;
-  } catch {
-    return fallbackPhotographers;
-  }
-}
 
 type Props = {
   value: string[];
@@ -37,12 +17,39 @@ type Props = {
 export default function MultiPhotographerDropdown({ value, onChange, placeholder = "Select Photographers...", className }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [photographers, setPhotographers] = useState<PhotographerOption[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  // const { currentTenant } = useTenant();
+  const currentTenant = { id: "demo-tenant" };
+  
+  
+  // Use the real photographers from database
+  // const { photographers: dbPhotographers, isLoading, error, fetch } = usePhotographers();
+  const dbPhotographers = [
+    { id: "photog1", name: "Alex Wilson", role: "Lead Photographer" },
+    { id: "photog2", name: "Sarah Chen", role: "Senior Photographer" },
+    { id: "photog3", name: "Mike Davis", role: "Creative Director" }
+  ];
+  const isLoading = false;
+  const error = null;
+  const fetch = () => {};
 
+  // Convert database photographers to the format expected by the component
+  const photographers: PhotographerOption[] = useMemo(() => {
+    return dbPhotographers.map(photographer => ({
+      id: photographer.id,
+      name: photographer.name,
+      role: photographer.role,
+      avatar: undefined
+    }));
+  }, [dbPhotographers]);
+
+  // Load photographers when component mounts
   useEffect(() => {
-    setPhotographers(loadPhotographers());
-  }, []);
+    if (currentTenant) {
+      console.log(`Mock fetch called with tenant: ${currentTenant.id}`);
+    }
+  }, [currentTenant]);
+
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -66,9 +73,6 @@ export default function MultiPhotographerDropdown({ value, onChange, placeholder
     else onChange([...value, id]);
   }
 
-  function remove(id: string) {
-    onChange(value.filter((v) => v !== id));
-  }
 
   return (
     <div className={`relative ${className || ""}`} ref={ref}>
@@ -84,20 +88,18 @@ export default function MultiPhotographerDropdown({ value, onChange, placeholder
         ) : (
           <div className="flex items-center gap-2 flex-wrap">
             {selected.map((p) => (
-              <span key={p.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-teal-50 text-teal-700 text-xs">
-                <span className="select-none">{p.avatar || "📸"}</span>
+              <span key={p.id} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 border border-green-300 text-green-800 text-xs font-medium">
+                <span className="select-none">
+                  {p.avatar && (p.avatar.startsWith('http') || p.avatar.startsWith('/uploads/')) ? (
+                    <img src={p.avatar} alt={p.name} className="w-4 h-4 rounded-full object-cover" />
+                  ) : (
+                    p.avatar || "📸"
+                  )}
+                </span>
                 <span className="truncate max-w-[140px]">{p.name}</span>
-                <button
-                  type="button"
-                  className="ml-1 text-teal-600 hover:text-teal-800"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    remove(p.id);
-                  }}
-                  aria-label={`Remove ${p.name}`}
-                >
-                  <X size={12} />
-                </button>
+                <span className="ml-1 text-green-600">
+                  ✓
+                </span>
               </span>
             ))}
             <span className="ml-auto text-gray-400"><ChevronDown size={16} /></span>
@@ -122,24 +124,53 @@ export default function MultiPhotographerDropdown({ value, onChange, placeholder
           </div>
 
           <div className="max-h-64 overflow-y-auto">
-            {filtered.length === 0 && (
-              <div className="px-3 py-3 text-sm text-gray-500">No photographers found</div>
+            {isLoading && (
+              <div className="px-3 py-6 text-sm text-gray-500 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mr-3"></div>
+                <span>Loading photographers...</span>
+              </div>
+            )}
+            {!isLoading && filtered.length === 0 && (
+              <div className="px-3 py-6 text-sm text-gray-500 text-center">
+                <div className="text-gray-400 mb-2">📸</div>
+                <div>No photographers found</div>
+                {query && <div className="text-xs text-gray-400 mt-1">Try a different search term</div>}
+              </div>
             )}
             {filtered.map((p) => {
-              const checked = value.includes(p.id);
+              const isSelected = value.includes(p.id);
               return (
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => toggle(p.id)}
-                  className={`w-full text-left px-3 py-2 hover:bg-gray-50 flex items-start gap-3 ${checked ? "bg-teal-50" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(p.id);
+                  }}
+                  className={`w-full text-left px-3 py-3 flex items-start gap-3 transition-all duration-200 ${
+                    isSelected 
+                      ? "bg-green-100 border-2 border-green-500 rounded-lg shadow-sm" 
+                      : "hover:bg-gray-50 border-2 border-transparent rounded-lg"
+                  }`}
                 >
-                  <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm flex-shrink-0 select-none">{p.avatar || "📸"}</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-gray-900 truncate">{p.name}</span>
-                    <span className="block text-xs text-gray-500 truncate">{p.role || "Photographer"}</span>
+                  <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm flex-shrink-0 select-none">
+                    {p.avatar && (p.avatar.startsWith('http') || p.avatar.startsWith('/uploads/')) ? (
+                      <img src={p.avatar} alt={p.name} className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                      p.avatar || "📸"
+                    )}
                   </span>
-                  <input type="checkbox" readOnly checked={checked} className="mt-1" />
+                  <span className="flex-1 min-w-0">
+                    <span className={`block text-sm font-medium truncate ${isSelected ? "text-green-800" : "text-gray-900"}`}>{p.name}</span>
+                    <span className={`block text-xs truncate ${isSelected ? "text-green-600" : "text-gray-500"}`}>{p.role || "Photographer"}</span>
+                  </span>
+                  {isSelected && (
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
                 </button>
               );
             })}

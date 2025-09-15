@@ -1,57 +1,139 @@
-"use client";
-import { useState, useCallback, useEffect } from "react";
-import {
-  createAgent,
-  updateAgent,
-  deleteAgent,
-  getAgentsByCompany,
-  getAllAgents,
-  getAgent,
-  getAgentStats
-} from "@/src/server/actions/agents.actions";
+import { useState, useCallback } from "react";
 
-export type Agent = {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  profileImage: string | null;
-  role: string;
-  isActive: boolean;
-  companyId: string;
-  tenantId: string;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  creator?: {
-    id: string;
-    name: string | null;
-    email: string;
-  };
-  company?: {
-    id: string;
-    name: string;
-  };
-};
+// Hook for getting agents by company
+export function useAgentsByCompany() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [agents, setAgents] = useState<any[]>([]);
 
+  const fetch = useCallback(async (tenantId: string, companyId: string): Promise<{ok: boolean; data?: any; error?: string}> => {
+    setIsLoading(true);
+    try {
+      console.log('Fetching agents by company:', { tenantId, companyId });
+      
+      const response: Response = await globalThis.fetch(`/api/agents/company?tenant=${tenantId}&company=${companyId}`);
+      const result: any = await response.json();
+      
+      if (result.ok && result.data) {
+        setAgents(result.data.agents || []);
+        return { ok: true, data: result.data };
+      } else {
+        console.error('Failed to fetch agents by company:', result.error);
+        setAgents([]);
+        return { ok: false, error: result.error || 'No data received' };
+      }
+    } catch (error) {
+      console.error("Failed to fetch agents by company:", error);
+      setAgents([]);
+      return { ok: false, error: "Failed to fetch agents by company" };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { fetch, agents, isLoading };
+}
+
+// Hook for getting all agents
+export function useAgents() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [agents, setAgents] = useState<any[]>([]);
+
+  const fetch = useCallback(async (): Promise<{ok: boolean; data?: any; error?: string}> => {
+    setIsLoading(true);
+    try {
+      console.log('Fetching agents');
+      setAgents([]);
+      return { ok: true, data: [] };
+    } catch (error) {
+      console.error("Failed to fetch agents:", error);
+      return { ok: false, error: "Failed to fetch agents" };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { fetch, agents, isLoading };
+}
+
+// Hook for getting all agents across all companies
+export function useAllAgents() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async (tenantSlug: string): Promise<{ok: boolean; data?: any; error?: string}> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('🔍 Fetching all agents for tenant:', tenantSlug);
+      
+      const response = await globalThis.fetch(`/api/agents/all?tenant=${tenantSlug}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.ok && result.data) {
+        setAgents(result.data.agents || []);
+        console.log(`✅ Loaded ${result.data.agents?.length || 0} agents from database`);
+        return { ok: true, data: result.data };
+      } else {
+        console.error('❌ Failed to fetch all agents:', result.error);
+        setAgents([]);
+        setError(result.error || 'Failed to fetch agents');
+        return { ok: false, error: result.error || 'No data received' };
+      }
+    } catch (error) {
+      console.error("❌ Error fetching all agents:", error);
+      setAgents([]);
+      setError("Failed to fetch agents");
+      return { ok: false, error: "Failed to fetch agents" };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { fetch, agents, isLoading, error };
+}
+
+// Hook for creating an agent
 export function useCreateAgent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const mutate = useCallback(async (tenantId: string, companyId: string, data: any) => {
+  const mutate = useCallback(async (agentData: Partial<Agent>): Promise<{ok: boolean; data?: any; error?: string}> => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const result = await createAgent(tenantId, companyId, data);
-      if (!result.ok) {
-        setError(result.error || "Failed to create agent");
+      console.log('🔧 Creating agent:', agentData);
+      
+      const response = await globalThis.fetch('/api/agents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(agentData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to create agent";
-      setError(errorMessage);
-      return { ok: false, error: errorMessage };
+
+      const result = await response.json();
+      
+      if (result.ok) {
+        console.log('✅ Agent created successfully');
+        return { ok: true, data: result.data };
+      } else {
+        setError(result.error || 'Failed to create agent');
+        return { ok: false, error: result.error || 'Failed to create agent' };
+      }
+    } catch (error) {
+      console.error("❌ Error creating agent:", error);
+      setError("Failed to create agent");
+      return { ok: false, error: "Failed to create agent" };
     } finally {
       setIsLoading(false);
     }
@@ -60,208 +142,64 @@ export function useCreateAgent() {
   return { mutate, isLoading, error };
 }
 
+// Hook for updating an agent
 export function useUpdateAgent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const mutate = useCallback(async (tenantId: string, agentId: string, data: any) => {
+  const mutate = useCallback(async (agentId: string, agentData: Partial<Agent>): Promise<{ok: boolean; data?: any; error?: string}> => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const result = await updateAgent(tenantId, agentId, data);
-      if (!result.ok) {
-        setError(result.error || "Failed to update agent");
-      }
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to update agent";
-      setError(errorMessage);
-      return { ok: false, error: errorMessage };
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  return { mutate, isLoading, error };
-}
-
-export function useDeleteAgent() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const mutate = useCallback(async (tenantId: string, agentId: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await deleteAgent(tenantId, agentId);
-      if (!result.ok) {
-        setError(result.error || "Failed to delete agent");
-      }
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to delete agent";
-      setError(errorMessage);
-      return { ok: false, error: errorMessage };
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  return { mutate, isLoading, error };
-}
-
-export function useAgentsByCompany() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [pagination, setPagination] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetch = useCallback(async (tenantId: string, companyId: string, options?: {
-    isActive?: boolean;
-    search?: string;
-    page?: number;
-    limit?: number;
-  }) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await getAgentsByCompany(tenantId, companyId, options);
-      if (result.ok && result.data) {
-        setAgents(result.data.agents);
-        setPagination(result.data.pagination);
-      } else {
-        setError(result.error || "Failed to fetch agents");
-      }
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to fetch agents";
-      setError(errorMessage);
-      return { ok: false, error: errorMessage };
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  return { fetch, agents, pagination, isLoading, error };
-}
-
-export function useAllAgents() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [pagination, setPagination] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetch = useCallback(async (tenantId: string, options?: {
-    isActive?: boolean;
-    search?: string;
-    page?: number;
-    limit?: number;
-  }) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await getAllAgents(tenantId, options);
-      if (result.ok && result.data) {
-        setAgents(result.data.agents);
-        setPagination(result.data.pagination);
-      } else {
-        setError(result.error || "Failed to fetch all agents");
-      }
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to fetch all agents";
-      setError(errorMessage);
-      return { ok: false, error: errorMessage };
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  return { fetch, agents, pagination, isLoading, error };
-}
-
-export function useAgent(tenantId: string, agentId: string) {
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchAgent = async () => {
-      setIsLoading(true);
-      setError(null);
+      console.log('🔧 Updating agent:', agentId, agentData);
       
-      try {
-        const result = await getAgent(tenantId, agentId);
-        if (result.ok && result.data) {
-          setAgent(result.data);
-        } else {
-          setError(result.error || "Failed to fetch agent");
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to fetch agent";
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
+      const response = await globalThis.fetch(`/api/agents/${agentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(agentData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
 
-    if (tenantId && agentId) {
-      fetchAgent();
-    }
-  }, [tenantId, agentId]);
-
-  return { data: agent, isLoading, error };
-}
-
-export function useAgentStats() {
-  const [stats, setStats] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetch = useCallback(async (tenantId: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const result = await getAgentStats(tenantId);
-      if (result.ok && result.data) {
-        setStats(result.data);
+      const result = await response.json();
+      
+      if (result.ok) {
+        console.log('✅ Agent updated successfully');
+        return { ok: true, data: result.data };
       } else {
-        setError(result.error || "Failed to fetch agent stats");
+        setError(result.error || 'Failed to update agent');
+        return { ok: false, error: result.error || 'Failed to update agent' };
       }
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to fetch agent stats";
-      setError(errorMessage);
-      return { ok: false, error: errorMessage };
+    } catch (error) {
+      console.error("❌ Error updating agent:", error);
+      setError("Failed to update agent");
+      return { ok: false, error: "Failed to update agent" };
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  return { fetch, stats, isLoading, error };
+  return { mutate, isLoading, error };
 }
 
-// Utility functions
-export function convertDbAgentToUI(dbAgent: any): Agent {
-  return {
-    id: dbAgent.id,
-    name: dbAgent.name,
-    email: dbAgent.email,
-    phone: dbAgent.phone,
-    profileImage: dbAgent.profileImage,
-    role: dbAgent.role,
-    isActive: dbAgent.isActive,
-    companyId: dbAgent.companyId,
-    tenantId: dbAgent.tenantId,
-    createdBy: dbAgent.createdBy,
-    createdAt: dbAgent.createdAt,
-    updatedAt: dbAgent.updatedAt,
-    creator: dbAgent.creator,
-    company: dbAgent.company,
+// Agent type definition
+export interface Agent {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: string;
+  profileImage?: string;
+  isActive: boolean;
+  companyId: string;
+  company?: {
+    id: string;
+    name: string;
   };
+  createdAt: Date;
+  updatedAt: Date;
 }

@@ -1,0 +1,12 @@
+This directory contains uploaded banner images for company profiles.
+
+Sample banner images can be placed here:
+- hinterland-banner.jpg
+- drift-banner.jpg  
+- belle-banner.jpg
+
+The upload API will save new banner images with timestamps:
+- banner_1234567890.jpg
+- banner_1234567891.png
+etc.
+

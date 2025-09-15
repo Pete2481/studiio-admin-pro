@@ -4,15 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import PageLayout from "@/components/PageLayout";
 import Topbar from "@/components/Topbar";
-import BusinessHoursModal, { loadBusinessHours, saveBusinessHours, type BusinessHours } from "@/components/BusinessHoursModal";
-import { Settings, MoreVertical, Edit, Trash2, Database, CheckCircle, AlertCircle, Ban } from "lucide-react";
+import BusinessHoursModal, { loadBusinessHours, saveBusinessHours, type BusinessHours } from "@/components/BusinessHoursModal";                                                                                         
+import { Settings, MoreVertical, Edit, Trash2, Database, CheckCircle, AlertCircle, Ban } from "lucide-react";                                                                                                           
 import Filters, { Filters as FiltersType } from "@/components/Filters";
 import EventModal from "@/components/EventModal";
 import BlockoutModal, { type Blockout } from "@/components/BlockoutModal";
+import NotificationSystem from "@/components/NotificationSystem";
 import { exportICS, importICS } from "@/lib/ics";
 import { type Service } from "@/components/ServiceModal";
-// Database integration (temporarily disabled)
-// import { useBookingsByRange, useCreateBooking, useUpdateBooking, useCancelBooking } from "../../src/client/api/bookings";
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -41,7 +40,7 @@ function statusColor(s: Booking["status"]) {
   }
 }
 
-function statusToDashboardLabel(s: Booking["status"]): "New Request" | "Confirmed" | "Completed" | "Cancelled" {
+function statusToDashboardLabel(s: Booking["status"]): "New Request" | "Confirmed" | "Completed" | "Cancelled" {                                                                                                        
   switch (s) {
     case "CONFIRMED":
       return "Confirmed";
@@ -71,7 +70,7 @@ function dashboardPillClass(label: ReturnType<typeof statusToDashboardLabel>) {
 
 export default function CalendarPage() {
   const params = useParams();
-  const tenantId = params?.tenantId as string || "studiio-pro"; // Default for demo
+  const tenantId = params?.tenantId as string || "business-media-drive"; // Default for Business Media Drive
 
   const [events, setEvents] = useState<Booking[]>([]);
   const [blockouts, setBlockouts] = useState<Blockout[]>([]);
@@ -92,12 +91,6 @@ export default function CalendarPage() {
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [favoritedServices, setFavoritedServices] = useState<Service[]>([]);
   const [dbStatus, setDbStatus] = useState<"loading" | "connected" | "error">("loading");
-
-  // Database hooks (temporarily disabled)
-  // const { fetch: fetchBookings, isLoading: isLoadingBookings } = useBookingsByRange();
-  // const { mutate: createBooking, isLoading: isCreating } = useCreateBooking();
-  // const { mutate: updateBooking, isLoading: isUpdating } = useUpdateBooking();
-  // const { mutate: cancelBooking, isLoading: isCancelling } = useCancelBooking();
 
   // Load favorited services
   useEffect(() => {
@@ -156,8 +149,6 @@ export default function CalendarPage() {
       setDbStatus("error");
     }
   }, []);
-
-  // Remove localStorage persistence - all data will come from database
 
   function filtered() {
     return events
@@ -376,7 +367,7 @@ export default function CalendarPage() {
   const fcEvents = [
     ...filtered().map((e) => ({
       id: e.id,
-      title: `${e.title}${e.client ? " • " + (Array.isArray(e.client) ? e.client.join(", ") : e.client) : ""}`,
+      title: `${e.title}${e.client ? " • " + (Array.isArray(e.client) ? e.client.join(", ") : e.client) : ""}`,                                                                                                         
       start: e.start,
       end: e.end,
       backgroundColor: e.color,
@@ -419,7 +410,7 @@ export default function CalendarPage() {
     <>
       <PageLayout>
         {/* Database Status Banner */}
-        <div className={`p-3 border-b ${dbStatus === "connected" ? "bg-green-50 border-green-200" : dbStatus === "error" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"}`}>
+        <div className={`p-3 border-b ${dbStatus === "connected" ? "bg-green-50 border-green-200" : dbStatus === "error" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"}`}>                            
           <div className="flex items-center space-x-2">
             {dbStatus === "connected" ? (
               <CheckCircle className="h-4 w-4 text-green-600" />
@@ -428,7 +419,7 @@ export default function CalendarPage() {
             ) : (
               <Database className="h-4 w-4 text-yellow-600" />
             )}
-                         <span className={`text-sm font-medium ${dbStatus === "connected" ? "text-green-800" : dbStatus === "error" ? "text-red-800" : "text-yellow-800"}`}>
+                         <span className={`text-sm font-medium ${dbStatus === "connected" ? "text-green-800" : dbStatus === "error" ? "text-red-800" : "text-yellow-800"}`}>                                            
                {dbStatus === "connected" 
                  ? "✅ Calendar Ready - Bookings saved to localStorage (ready for real bookings)" 
                  : dbStatus === "error" 
@@ -439,7 +430,7 @@ export default function CalendarPage() {
         </div>
 
         {/* Custom toolbar matching screenshot */}
-        <div className="sticky top-0 z-10 bg-[var(--card)]/95 backdrop-blur border-b border-[var(--border)]">
+        <div className="sticky top-0 z-10 bg-[var(--card)]/95 backdrop-blur border-b border-[var(--border)]">                                                                                                           
           <div className="container flex items-center justify-between h-14">
             <div className="flex items-center gap-2">
               <button
@@ -448,6 +439,7 @@ export default function CalendarPage() {
                   setEditing(undefined);
                   setModalOpen(true);
                 }}
+              style={{ backgroundColor: '#b7e7cc' }}
               >New Booking</button>
               <div
                 className="btn bg-red-600 hover:bg-red-700 text-white cursor-grab active:cursor-grabbing"
@@ -472,7 +464,7 @@ export default function CalendarPage() {
             </div>
             <div className="font-semibold">Calendar</div>
             <div>
-              <button className="btn" aria-label="Settings" title="Business Hours" onClick={()=>setHoursOpen(true)}>
+              <button className="btn" aria-label="Settings" title="Business Hours" onClick={()=>setHoursOpen(true)}>                                                                                                    
                 <Settings size={16} className="inline mr-1"/> Settings
               </button>
             </div>
@@ -485,7 +477,7 @@ export default function CalendarPage() {
             {favoritedServices.map((service) => {
               const durationHours = Math.floor((service.durationMinutes || 60) / 60);
               const durationMinutes = (service.durationMinutes || 60) % 60;
-              const durationString = `${durationHours.toString().padStart(2, '0')}:${durationMinutes.toString().padStart(2, '0')}`;
+              const durationString = `${durationHours.toString().padStart(2, '0')}:${durationMinutes.toString().padStart(2, '0')}`;                                                                                     
               
               return (
                 <div
@@ -496,7 +488,7 @@ export default function CalendarPage() {
                   data-status="CONFIRMED"
                   data-address="Address"
                   data-agent="Agent"
-                  className="rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm shadow-sm cursor-grab active:cursor-grabbing select-none"
+                  className="rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm shadow-sm cursor-grab active:cursor-grabbing select-none"                                                              
                 >
                   <div className="font-medium">Quick Booking</div>
                   <div className="mt-1 text-xs rounded-lg bg-[var(--accent-hover)] px-2 py-1 inline-block">
@@ -513,7 +505,7 @@ export default function CalendarPage() {
               data-duration="01:00"
               data-status="BLOCKOUT"
               data-type="blockout"
-              className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm shadow-sm cursor-grab active:cursor-grabbing select-none"
+              className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm shadow-sm cursor-grab active:cursor-grabbing select-none"                                                                         
             >
               <div className="font-medium text-red-700">Blockout</div>
               <div className="mt-1 text-xs rounded-lg bg-red-100 text-red-700 px-2 py-1 inline-block">
@@ -543,9 +535,18 @@ export default function CalendarPage() {
                   center: "title",
                   right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
                 }}
-                slotMinTime={`${Math.min(...Object.values(hours).map(h=>parseInt(h.start.split(":")[0])||6))}:00:00`}
-                slotMaxTime={`${Math.max(...Object.values(hours).map(h=>parseInt(h.end.split(":")[0])||18))+1}:00:00`}
-                weekends={filters.weekends}
+                slotMinTime={`${Math.min(...Object.values(hours).map(h=>parseInt(h.start.split(":")[0])||6))}:00:00`}                                                                                                   
+                slotMaxTime={`${Math.max(...Object.values(hours).map(h=>parseInt(h.end.split(":")[0])||18))+1}:00:00`}                                                                                                  
+                weekends={hours.sunday.enabled || hours.saturday.enabled}
+                hiddenDays={[
+                  !hours.sunday.enabled && 0,
+                  !hours.monday.enabled && 1,
+                  !hours.tuesday.enabled && 2,
+                  !hours.wednesday.enabled && 3,
+                  !hours.thursday.enabled && 4,
+                  !hours.friday.enabled && 5,
+                  !hours.saturday.enabled && 6,
+                ].filter(day => day !== false) as number[]}
                 businessHours={[
                   { daysOfWeek: [0], startTime: hours.sunday.start, endTime: hours.sunday.end },
                   { daysOfWeek: [1], startTime: hours.monday.start, endTime: hours.monday.end },
@@ -611,15 +612,15 @@ export default function CalendarPage() {
               <table className="w-full">
                 <thead className="bg-teal-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Booking Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Time</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Address</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Comment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Services</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Photographer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Action</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Booking Date</th>                                                                                    
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Time</th>                                                                                            
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Client</th>                                                                                          
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Address</th>                                                                                         
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Comment</th>                                                                                         
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Services</th>                                                                                        
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Photographer</th>                                                                                    
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Status</th>                                                                                          
+                    <th className="px-6 py-3 text-left text-xs font-medium text-teal-700 uppercase tracking-wider">Action</th>                                                                                          
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -631,33 +632,33 @@ export default function CalendarPage() {
                       const s = new Date(booking.start);
                       const e = new Date(booking.end);
                       const dateStr = s.toLocaleDateString('en-AU');
-                      const timeStr = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                      const timeStr = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;                                      
                       const label = statusToDashboardLabel(booking.status);
                       const pill = dashboardPillClass(label);
                       return (
                         <tr key={booking.id} className={index % 2 === 0 ? 'bg-white' : 'bg-teal-50'}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dateStr}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{timeStr}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{Array.isArray(booking.client) ? booking.client.join(', ') : (booking.client || '-') }</div></td>
-                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{booking.address || '-'}</div></td>
-                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{booking.notes || ''}</div></td>
-                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{Array.isArray(booking.services) ? booking.services.join(', ') : '-'}</div></td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{Array.isArray(booking.photographer) ? booking.photographer.join(', ') : '-'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{Array.isArray(booking.client) ? booking.client.join(', ') : (booking.client || '-') }</div></td>          
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{booking.address || '-'}</div></td>                                                                        
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{booking.notes || ''}</div></td>                                                                           
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs"><div className="truncate">{Array.isArray(booking.services) ? booking.services.join(', ') : '-'}</div></td>                           
+                          <td className="px-6 py-4 text-sm text-gray-900">{Array.isArray(booking.photographer) ? booking.photographer.join(', ') : '-'}</td>                                                            
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${pill}`}>{label}</span>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${pill}`}>{label}</span>                                                                                         
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => { setEditing(booking); setModalOpen(true); }}
-                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"                                                                                     
                                 title="Edit"
                               >
                                 <Edit size={16} />
                               </button>
                               <button
                                 onClick={() => deleteBooking(booking.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"                                                                                       
                                 title="Delete"
                               >
                                 <Trash2 size={16} />
@@ -699,6 +700,10 @@ export default function CalendarPage() {
         onClose={()=>setHoursOpen(false)}
         onSave={(h)=>{ setHours(h); saveBusinessHours(h); setHoursOpen(false); }}
       />
+
+      {/* Notification System */}
+      <NotificationSystem showTestButton={true} />
     </>
   );
 }
+

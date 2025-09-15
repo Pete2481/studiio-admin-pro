@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import { useAllAgents } from "@/src/client/api/agents";
+import { useTenant } from "./TenantProvider";
+import { useClientAdmin } from "./ClientAdminProvider";
 
 export type AgentOption = { id: string; name: string; company?: string; avatar?: string };
 
-const fallbackAgents: AgentOption[] = [];
+const fallbackAgents: AgentOption[] = [
+  { id: "agent1", name: "John Smith", company: "Real Estate Co" },
+  { id: "agent2", name: "Jane Doe", company: "Property Group" },
+  { id: "agent3", name: "Mike Johnson", company: "Luxury Homes" }
+];
 
 type Props = {
   value: string[];
@@ -19,24 +25,38 @@ export default function MultiAgentDropdown({ value, onChange, placeholder = "Sel
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const { currentTenant } = useTenant();
+  const { currentClient } = useClientAdmin();
   
-  // Use the real agents from database
-  const { agents: dbAgents, isLoading, error, fetch } = useAllAgents();
+  // Use ALL agents from database for the tenant
+  const { agents: dbAgents, isLoading, fetch } = useAllAgents();
 
   // Convert database agents to the format expected by the component
   const agents: AgentOption[] = useMemo(() => {
     return dbAgents.map(agent => ({
       id: agent.id,
       name: agent.name,
-      company: agent.company?.name || "Unknown Company",
-      avatar: agent.profileImage || "👤"
+      company: (agent.company as any)?.name || "Unknown Company",
+      avatar: (agent as any).profileImage || "👤"
     }));
   }, [dbAgents]);
 
-  // Load agents when component mounts
+  // Load ALL agents when component mounts or when tenant changes
   useEffect(() => {
-    fetch("studiio-pro", { isActive: true });
-  }, [fetch]);
+    if (currentTenant?.slug) {
+      console.log(`Fetching ALL agents for tenant: ${currentTenant.slug}`);
+      fetch(currentTenant.slug);
+    }
+  }, [currentTenant?.slug, fetch]);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('MultiAgentDropdown: State update:', {
+      currentTenant: currentTenant?.slug,
+      agents: agents.length,
+      isLoading
+    });
+  }, [currentTenant, agents, isLoading]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -46,13 +66,28 @@ export default function MultiAgentDropdown({ value, onChange, placeholder = "Sel
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const selected = useMemo(() => agents.filter((a) => value.includes(a.id)), [agents, value]);
+  const selected = useMemo(() => {
+    const result = agents.filter((a) => value.includes(a.id));
+    console.log('MultiAgentDropdown: selected calculation', {
+      agentsLength: agents.length,
+      value,
+      selectedLength: result.length,
+      selected: result.map(a => ({ id: a.id, name: a.name }))
+    });
+    return result;
+  }, [agents, value]);
+  
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return agents;
-    return agents.filter((a) =>
+    if (!q) {
+      console.log('MultiAgentDropdown: filtered (no query)', { agentsLength: agents.length });
+      return agents;
+    }
+    const result = agents.filter((a) =>
       [a.name, a.company].filter(Boolean).join(" ").toLowerCase().includes(q)
     );
+    console.log('MultiAgentDropdown: filtered (with query)', { query: q, resultLength: result.length });
+    return result;
   }, [agents, query]);
 
   function toggle(id: string) {
@@ -60,9 +95,6 @@ export default function MultiAgentDropdown({ value, onChange, placeholder = "Sel
     else onChange([...value, id]);
   }
 
-  function remove(id: string) {
-    onChange(value.filter((v) => v !== id));
-  }
 
   return (
     <div className={`relative ${className || ""}`} ref={ref}>
@@ -95,17 +127,9 @@ export default function MultiAgentDropdown({ value, onChange, placeholder = "Sel
                   )}
                 </span>
                 <span className="truncate max-w-[140px]">{a.name}</span>
-                <button
-                  type="button"
-                  className="ml-1 text-teal-600 hover:text-teal-800"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    remove(a.id);
-                  }}
-                  aria-label={`Remove ${a.name}`}
-                >
-                  <X size={12} />
-                </button>
+                <span className="ml-1 text-teal-600">
+                  ✓
+                </span>
               </span>
             ))}
             <span className="ml-auto text-gray-400"><ChevronDown size={16} /></span>
@@ -141,16 +165,24 @@ export default function MultiAgentDropdown({ value, onChange, placeholder = "Sel
                 <div className="text-gray-400 mb-2">👥</div>
                 <div>No agents found</div>
                 {query && <div className="text-xs text-gray-400 mt-1">Try a different search term</div>}
+                <div className="text-xs text-gray-400 mt-1">Debug: filtered.length = {filtered.length}, agents.length = {agents.length}</div>
               </div>
             )}
             {filtered.map((a) => {
-              const checked = value.includes(a.id);
+              const isSelected = value.includes(a.id);
               return (
                 <button
                   key={a.id}
                   type="button"
-                  onClick={() => toggle(a.id)}
-                  className={`w-full text-left px-3 py-2 hover:bg-gray-50 flex items-start gap-3 transition-colors ${checked ? "bg-teal-50 border-l-2 border-teal-500" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(a.id);
+                  }}
+                  className={`w-full text-left px-3 py-3 flex items-start gap-3 transition-all duration-200 ${
+                    isSelected 
+                      ? "bg-green-100 border-2 border-green-500 rounded-lg shadow-sm" 
+                      : "hover:bg-gray-50 border-2 border-transparent rounded-lg"
+                  }`}
                 >
                   <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm flex-shrink-0 select-none overflow-hidden">
                     {a.avatar && a.avatar.startsWith('http') ? (
@@ -168,16 +200,16 @@ export default function MultiAgentDropdown({ value, onChange, placeholder = "Sel
                     )}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-gray-900 truncate">{a.name}</span>
-                    <span className="block text-xs text-gray-500 truncate">{a.company || "No company"}</span>
+                    <span className={`block text-sm font-medium truncate ${isSelected ? "text-green-800" : "text-gray-900"}`}>{a.name}</span>
+                    <span className={`block text-xs truncate ${isSelected ? "text-green-600" : "text-gray-500"}`}>{a.company || "No company"}</span>
                   </span>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-1 transition-colors ${checked ? "bg-teal-500 border-teal-500" : "border-gray-300"}`}>
-                    {checked && (
+                  {isSelected && (
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                       <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </button>
               );
             })}

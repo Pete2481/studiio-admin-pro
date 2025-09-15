@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useCompany } from "@/src/client/api/companies";
 import { Company } from "@/src/client/api/companies";
-import { useAgentsByCompany, useDeleteAgent, Agent } from "@/src/client/api/agents";
+import { useAgentsByCompany, Agent } from "@/src/client/api/agents";
 import { ArrowLeft, Search, Plus, Mail, Phone, Edit, Trash2, ExternalLink } from "lucide-react";
 import AgentModal from "@/components/AgentModal";
 
@@ -14,23 +14,20 @@ export default function CompanyProfilePage() {
   const companyId = params.id as string;
   const [activeTab, setActiveTab] = useState("agents");
   
-  const { data: company, isLoading, error } = useCompany("studiio-pro", companyId);
-  const { fetch: fetchAgents, agents, pagination, isLoading: agentsLoading } = useAgentsByCompany();
-  const deleteAgentMutation = useDeleteAgent();
+  const { company, isLoading, error, fetch: fetchCompany } = useCompany();
+  const { fetch: fetchAgents, agents, isLoading: agentsLoading } = useAgentsByCompany();
   
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Fetch agents when company loads
+  // Fetch company and agents when component loads
   useEffect(() => {
     if (companyId) {
-      fetchAgents("studiio-pro", companyId, {
-        search: searchTerm,
-        isActive: true
-      });
+      fetchCompany(companyId);
+      fetchAgents("business-media-drive", companyId);
     }
-  }, [companyId, searchTerm, fetchAgents]);
+  }, [companyId, fetchCompany, fetchAgents]);
 
   const handleAddAgent = () => {
     setSelectedAgent(null);
@@ -44,23 +41,16 @@ export default function CompanyProfilePage() {
 
   const handleDeleteAgent = async (agentId: string) => {
     if (confirm("Are you sure you want to delete this agent?")) {
-      const result = await deleteAgentMutation.mutate("studiio-pro", agentId);
-      if (result?.ok) {
-        // Refresh agents list
-        fetchAgents("studiio-pro", companyId, {
-          search: searchTerm,
-          isActive: true
-        });
-      }
+      // TODO: Implement delete agent functionality
+      console.log("Delete agent:", agentId);
+      // Refresh agents list
+      fetchAgents("business-media-drive", companyId);
     }
   };
 
   const handleAgentSuccess = () => {
     // Refresh agents list
-    fetchAgents("studiio-pro", companyId, {
-      search: searchTerm,
-      isActive: true
-    });
+    fetchAgents("business-media-drive", companyId);
   };
 
   if (isLoading) {
@@ -96,7 +86,7 @@ export default function CompanyProfilePage() {
     );
   }
 
-  const parseJsonField = (field: string | null) => {
+  const parseJsonField = (field: string | null | undefined) => {
     if (!field) return [];
     try {
       return JSON.parse(field);

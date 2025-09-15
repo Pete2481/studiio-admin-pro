@@ -3,10 +3,11 @@ import { getNewsletterById, updateNewsletter, deleteNewsletter } from '@/src/ser
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await getNewsletterById(params.id);
+    const { id } = await params;
+    const result = await getNewsletterById(id);
     
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -25,11 +26,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const result = await updateNewsletter(params.id, body);
+    const result = await updateNewsletter(id, body);
     
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -44,10 +46,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await deleteNewsletter(params.id);
+    const { id } = await params;
+    const result = await deleteNewsletter(id);
     
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });

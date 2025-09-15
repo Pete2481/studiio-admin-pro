@@ -24,8 +24,7 @@ npm run dev
 - **System Overview**: Key metrics and performance indicators
 
 ### Available Routes
-- `/t/studiio-pro/admin` - Studiio Pro Sub Admin Dashboard
-- `/t/photo-studio/admin` - Photo Studio Master Admin Dashboard
+- `/t/business-media-drive/admin` - Business Media Drive Admin Dashboard
 - `/tenant-select` - Tenant Selection Page
 
 ## 🔧 Development Features
@@ -102,6 +101,14 @@ The dashboard is fully responsive and works on:
 ---
 
 **Ready to explore?** Visit `http://localhost:5173/demo` and click "Access Dashboard" to get started!
+
+
+
+
+
+
+
+
 
 
 

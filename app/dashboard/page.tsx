@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import PageLayout from "@/components/PageLayout";
+import Sidebar from "@/components/Sidebar";
 import { Edit, Trash2, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Copy, Eye, BarChart3, DollarSign, Users, TrendingUp as TrendingUpIcon, Images, Calendar, FileText } from "lucide-react";
 
 interface Gallery {
@@ -350,7 +351,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <PageLayout className="bg-gray-50">
+    <>
+      <Sidebar />
+      <PageLayout className="bg-gray-50">
       <div className="container mx-auto p-4 sm:p-6">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
@@ -726,6 +729,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </PageLayout>
+      </PageLayout>
+    </>
   );
 }

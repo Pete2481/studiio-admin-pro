@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear All localStorage</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { background: #dc3545; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px 5px; }
+        button:hover { background: #c82333; }
+        .success { background: #28a745; }
+        .success:hover { background: #218838; }
+        .log { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 15px 0; border-radius: 4px; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear All localStorage Data</h1>
+        <p>This will completely clear all localStorage data for your Studiio Admin application.</p>
+        
+        <button onclick="clearLocalStorage()">🗑️ Clear All localStorage</button>
+        <button onclick="showLocalStorageKeys()" class="success">👀 Show Current Keys</button>
+        <button onclick="clearLog()">🧽 Clear Log</button>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        function showLocalStorageKeys() {
+            log('🔍 Checking current localStorage keys...');
+            
+            const keys = Object.keys(localStorage);
+            log(`Found ${keys.length} localStorage keys:`);
+            
+            if (keys.length === 0) {
+                log('✅ localStorage is already empty!');
+            } else {
+                keys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    const preview = value.length > 100 ? value.substring(0, 100) + '...' : value;
+                    log(`  📄 ${key}: ${preview}`);
+                });
+            }
+        }
+
+        function clearLocalStorage() {
+            log('🧹 Starting localStorage cleanup...');
+            
+            const keys = Object.keys(localStorage);
+            log(`Found ${keys.length} keys to clear`);
+            
+            if (keys.length === 0) {
+                log('✅ localStorage is already empty!');
+                return;
+            }
+
+            // Show what we're about to delete
+            log('🗑️ Keys to be deleted:');
+            keys.forEach(key => {
+                log(`  - ${key}`);
+            });
+
+            // Clear all localStorage
+            localStorage.clear();
+            
+            // Verify it's cleared
+            const remainingKeys = Object.keys(localStorage);
+            
+            if (remainingKeys.length === 0) {
+                log('✅ Successfully cleared all localStorage data!');
+                log('🔄 Please refresh your Studiio Admin pages to see the changes.');
+                log('📝 Only database data should now be displayed.');
+            } else {
+                log(`❌ Warning: ${remainingKeys.length} keys still remain after clearing!`);
+                remainingKeys.forEach(key => log(`  - ${key}`));
+            }
+        }
+
+        // Show current keys on page load
+        window.onload = function() {
+            showLocalStorageKeys();
+        };
+    </script>
+</body>
+</html>

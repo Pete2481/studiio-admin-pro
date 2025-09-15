@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import PageLayout from "@/components/PageLayout";
+import Sidebar from "@/components/Sidebar";
 import { Search, Filter, Plus, Edit, Phone, Mail, Trash2 } from "lucide-react";
 import PhotographerModal, { type Photographer } from "@/components/PhotographerModal";
 
@@ -320,7 +321,9 @@ export default function PhotographersPage() {
   };
 
   return (
-    <PageLayout className="bg-white">
+    <>
+      <Sidebar />
+      <PageLayout className="bg-white">
       <div className="container mx-auto p-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {/* Header */}
@@ -439,6 +442,7 @@ export default function PhotographersPage() {
         onSave={handleSavePhotographer}
         onDelete={editingPhotographer ? () => handleDeletePhotographer(editingPhotographer.id) : undefined}
       />
-    </PageLayout>
+      </PageLayout>
+    </>
   );
 }

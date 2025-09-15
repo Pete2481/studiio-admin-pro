@@ -2,23 +2,87 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PageLayout from "@/components/PageLayout";
+import Sidebar from "@/components/Sidebar";
 import { Search, Filter, Plus, MoreVertical, ChevronLeft, ChevronRight, Edit, Trash2, Heart } from "lucide-react";
 import ServiceModal, { type Service } from "@/components/ServiceModal";
-import { getAllServices, toggleServiceFavorite } from "@/lib/serviceManager";
+
+// Simple hardcoded services for testing
+const TEST_SERVICES: Service[] = [
+  {
+    id: "photo-10",
+    name: "PHOTOGRAPHY - Up to 10 Images",
+    description: "Professional ground-level photography with up to 10 high-quality images.",
+    icon: "📸",
+    status: "Active",
+    cost: "$225",
+    date: new Date().toDateString(),
+    durationMinutes: 60,
+    favorite: false,
+    displayPrice: true,
+    active: true,
+  },
+  {
+    id: "photo-20",
+    name: "PHOTOGRAPHY - Up to 20 Images",
+    description: "Comprehensive ground-level photography with up to 20 high-quality images.",
+    icon: "📸",
+    status: "Active",
+    cost: "$350",
+    date: new Date().toDateString(),
+    durationMinutes: 90,
+    favorite: true,
+    displayPrice: true,
+    active: true,
+  },
+  {
+    id: "drone-10",
+    name: "DRONE PHOTOGRAPHY - Up to 10 Images",
+    description: "Aerial drone photography with up to 10 high-quality images.",
+    icon: "🚁",
+    status: "Active",
+    cost: "$225",
+    date: new Date().toDateString(),
+    durationMinutes: 60,
+    favorite: true,
+    displayPrice: true,
+    active: true,
+  },
+  {
+    id: "video-cinematic",
+    name: "CINEMATIC PROPERTY VIDEO",
+    description: "Professional cinematic property video showcasing the property in motion.",
+    icon: "🎥",
+    status: "Active",
+    cost: "$600",
+    date: new Date().toDateString(),
+    durationMinutes: 120,
+    favorite: true,
+    displayPrice: true,
+    active: true,
+  },
+  {
+    id: "package-essential",
+    name: "ESSENTIAL PACKAGE",
+    description: "Ideal for 3-5 bedroom properties. Includes up to 35 images, branded floor plan & site plan, drone photography.",
+    icon: "📷",
+    status: "Active",
+    cost: "$550",
+    date: new Date().toDateString(),
+    durationMinutes: 180,
+    favorite: true,
+    displayPrice: true,
+    active: true,
+    imageQuotaEnabled: true,
+    imageQuota: 35,
+  },
+];
 
 export default function ServicesPage() {
   const params = useParams();
-  const tenantId = params?.tenantId as string || "studiio-pro"; // Default for demo
-
-  // Local state for loading states
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isToggling, setIsToggling] = useState(false);
+  const tenantId = params?.tenantId as string || "business-media-drive";
 
   // Local state
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Service[]>(TEST_SERVICES);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -27,29 +91,6 @@ export default function ServicesPage() {
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-
-  // Load services from service manager
-  useEffect(() => {
-    const allServices = getAllServices();
-    setServices(allServices);
-  }, []);
-
-  // Listen for service updates from service manager
-  useEffect(() => {
-    const handleServicesUpdate = () => {
-      console.log("Services page: Received servicesUpdated event");
-      const allServices = getAllServices();
-      console.log("Services page: Updated services:", allServices);
-      setServices(allServices);
-    };
-
-    console.log("Services page: Setting up event listener");
-    window.addEventListener("studiio:servicesUpdated", handleServicesUpdate);
-    return () => {
-      console.log("Services page: Cleaning up event listener");
-      window.removeEventListener("studiio:servicesUpdated", handleServicesUpdate);
-    };
-  }, []);
 
   // Filter services based on search and status
   const filteredServices = services.filter(service => {
@@ -95,60 +136,34 @@ export default function ServicesPage() {
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    setIsDeleting(true);
-    try {
-      // Remove from local state
-      setServices(prev => prev.filter(service => service.id !== serviceId));
-      // TODO: Add to service manager delete function
-    } catch (error) {
-      console.error("Failed to delete service:", error);
-    } finally {
-      setIsDeleting(false);
-      setDropdownOpen(null);
-    }
+    setServices(prev => prev.filter(service => service.id !== serviceId));
+    setDropdownOpen(null);
   };
 
   const handleToggleFavorite = async (serviceId: string) => {
-    console.log("Services page: Toggling favorite for service:", serviceId);
-    setIsToggling(true);
-    
-    try {
-      // Use the service manager to toggle favorite
-      toggleServiceFavorite(serviceId);
-      console.log("Services page: Favorite toggled successfully");
-    } catch (error) {
-      console.error("Services page: Error toggling favorite:", error);
-    } finally {
-      setIsToggling(false);
-    }
+    setServices(prev => prev.map(service => 
+      service.id === serviceId 
+        ? { ...service, favorite: !service.favorite }
+        : service
+    ));
   };
 
   const onSaveService = async (svc: Service) => {
     if (svc.id && svc.id.startsWith('temp-')) {
       // New service
-      setIsCreating(true);
-      try {
-        const newService = { ...svc, id: `temp-${Date.now()}` };
-        setServices(prev => [...prev, newService]);
-        setModalOpen(false);
-      } catch (error) {
-        console.error("Failed to create service:", error);
-      } finally {
-        setIsCreating(false);
-      }
+      const newService: Service = {
+        ...svc,
+        id: crypto.randomUUID(),
+        date: new Date().toDateString(),
+      };
+      setServices(prev => [...prev, newService]);
+      setModalOpen(false);
     } else {
       // Update existing service
-      setIsUpdating(true);
-      try {
-        setServices(prev => prev.map(service => 
-          service.id === svc.id ? svc : service
-        ));
-        setModalOpen(false);
-      } catch (error) {
-        console.error("Failed to update service:", error);
-      } finally {
-        setIsUpdating(false);
-      }
+      setServices(prev => prev.map(service => 
+        service.id === svc.id ? svc : service
+      ));
+      setModalOpen(false);
     }
   };
 
@@ -158,32 +173,23 @@ export default function ServicesPage() {
       : "bg-orange-100 text-orange-800";
   };
 
-  if (isLoading) {
-    return (
-      <PageLayout className="bg-gray-50">
-        <div className="container mx-auto p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-lg text-gray-600">Loading services...</div>
-          </div>
-        </div>
-      </PageLayout>
-    );
-  }
-
   return (
     <>
       <PageLayout className="bg-gray-50">
         <div className="container mx-auto p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
+              <p className="text-sm text-gray-500">Total: {services.length} | Filtered: {filteredServices.length}</p>
+            </div>
             <button 
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 flex items-center gap-2" 
+              className="text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              style={{ backgroundColor: '#b7e7cc' }}
               onClick={() => { setEditing(undefined); setModalOpen(true); }}
-              disabled={isCreating}
             >
               <Plus size={16} />
-              {isCreating ? "Adding..." : "Add Service"}
+              Add Service
             </button>
           </div>
 
@@ -292,7 +298,6 @@ export default function ServicesPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleToggleFavorite(service.id)}
-                            disabled={isToggling}
                             className={`p-1 rounded transition-colors ${
                               service.favorite 
                                 ? 'text-red-500 hover:text-red-600 bg-red-50' 
@@ -322,11 +327,10 @@ export default function ServicesPage() {
                                   </button>
                                   <button
                                     onClick={() => handleDeleteService(service.id)}
-                                    disabled={isDeleting}
                                     className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                                   >
                                     <Trash2 size={14} />
-                                    {isDeleting ? "Deleting..." : "Delete Service"}
+                                    Delete Service
                                   </button>
                                 </div>
                               </div>

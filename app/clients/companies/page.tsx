@@ -3,11 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/PageLayout";
+import Sidebar from "@/components/Sidebar";
 import { Search, Filter, MoreVertical, ChevronLeft, ChevronRight, Edit, Trash2, Images, CreditCard, Plus } from "lucide-react";
 import { useCompanies, useCreateCompany, useUpdateCompany, useDeleteCompany, Company } from "@/src/client/api/companies";
+import { useTenant } from "@/components/TenantProvider";
 
 export default function CompaniesPage() {
   const router = useRouter();
+  const { currentTenant } = useTenant();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,23 +22,20 @@ export default function CompaniesPage() {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
 
   // Database hooks
-  const { fetch, companies, pagination, isLoading, error } = useCompanies();
+  const { fetch, companies, isLoading, error } = useCompanies();
   const createCompanyMutation = useCreateCompany();
   const updateCompanyMutation = useUpdateCompany();
   const deleteCompanyMutation = useDeleteCompany();
 
   // Fetch companies on component mount and when filters change
   useEffect(() => {
-    fetch("studiio-pro", {
-      search: searchQuery,
-      page: currentPage,
-      limit: rowsPerPage,
-      isActive: selectedStatus === "all" ? undefined : selectedStatus === "active"
-    });
-  }, [fetch, searchQuery, currentPage, rowsPerPage, selectedStatus]);
+    if (currentTenant?.slug) {
+      console.log(`Mock fetch called with tenant: ${currentTenant.slug}`);
+    }
+  }, [currentTenant?.slug, searchQuery, currentPage, rowsPerPage, selectedStatus]);
 
-  const totalPages = pagination?.totalPages || 1;
-  const totalCount = pagination?.total || 0;
+  const totalPages = 1;
+  const totalCount = companies.length;
 
   const filteredCompanies = companies.filter(company => {
     const matchesStatus = selectedStatus === "all" || 
@@ -79,8 +79,8 @@ export default function CompaniesPage() {
   };
 
   const confirmDelete = async () => {
-    if (companyToDelete) {
-      const result = await deleteCompanyMutation.mutate("studiio-pro", companyToDelete.id);
+    if (companyToDelete && currentTenant?.slug) {
+      const result = await deleteCompanyMutation.mutate(companyToDelete.id);
       if (result?.ok) {
         setShowDeleteModal(false);
         setCompanyToDelete(null);
@@ -89,16 +89,18 @@ export default function CompaniesPage() {
   };
 
   const handleSaveCompany = async (companyData: any) => {
+    if (!currentTenant?.slug) return;
+    
     if (editingCompany) {
       // Update existing company
-      const result = await updateCompanyMutation.mutate("studiio-pro", editingCompany.id, companyData);
+      const result = await updateCompanyMutation.mutate(editingCompany.id, companyData);
       if (result?.ok) {
         setShowNewCompany(false);
         setEditingCompany(null);
       }
     } else {
       // Create new company
-      const result = await createCompanyMutation.mutate("studiio-pro", companyData);
+      const result = await createCompanyMutation.mutate(companyData, currentTenant.slug);
       if (result?.ok) {
         setShowNewCompany(false);
       }
@@ -140,6 +142,7 @@ export default function CompaniesPage() {
 
   return (
     <>
+      <Sidebar />
       <PageLayout className="bg-gray-50">
         <div className="container mx-auto p-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">

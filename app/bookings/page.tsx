@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import PageLayout from "@/components/PageLayout";
+import Sidebar from "@/components/Sidebar";
 import { Edit, Trash2 } from "lucide-react";
 import { Booking as BookingModel } from "@/lib/types";
-import { useAllAgents } from "@/src/client/api/agents";
+// import { useAllAgents } from "@/src/client/api/agents";
 
 type Row = {
   id: string;
@@ -29,8 +30,14 @@ const fallbackPhotographers = [
 export default function BookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [events, setEvents] = useState<BookingModel[]>([]);
-  const { agents, fetch } = useAllAgents();
-  useEffect(()=>{ fetch("studiio-pro", { isActive: true }); }, [fetch]);
+  // const { agents, fetch } = useAllAgents();
+  const agents = [
+    { id: "agent1", name: "John Smith", company: "Real Estate Co" },
+    { id: "agent2", name: "Jane Doe", company: "Property Group" },
+    { id: "agent3", name: "Mike Johnson", company: "Luxury Homes" }
+  ];
+  const fetch = (tenantId: string, filters: any) => {};
+  useEffect(()=>{ fetch("business-media-drive", { isActive: true }); }, [fetch]);
   useEffect(()=>{
     const ensure=()=>{
       try{
@@ -128,7 +135,9 @@ export default function BookingsPage() {
   const currentBookings = rows.slice(startIndex, endIndex);
 
   return (
-    <PageLayout>
+    <>
+      <Sidebar />
+      <PageLayout>
       <div className="container mx-auto p-4 sm:p-6">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Bookings</h1>
 
@@ -245,6 +254,7 @@ export default function BookingsPage() {
           )}
         </div>
       </div>
-    </PageLayout>
+      </PageLayout>
+    </>
   );
 }

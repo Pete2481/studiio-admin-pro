@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ===== AUTHENTICATION & SESSIONS =====
@@ -72,11 +72,20 @@ model User {
   clients       Client[]
   companies     Company[]
   agents        Agent[]
+  photographers Photographer[]
+  bookingStatuses BookingStatus[]
   assignments   Assignment[]
   assignedBy    Assignment[] @relation("AssignmentAssigner")
   auditLogs     AuditLog[]
   newsletters   Newsletter[]
   images       Image[]
+  notificationsCreated Notification[] @relation("NotificationCreator")
+  notificationsTarget  Notification[] @relation("NotificationTarget")
+  blockouts     Blockout[]
+  requests      Request[]
+  editRequests  EditRequest[]
+  editRequestsAssigned EditRequest[] @relation("EditRequestEditor")
+  completedCollections CompletedCollection[]
 
   @@map("users")
 }
@@ -105,11 +114,18 @@ model Tenant {
   clients     Client[]
   companies   Company[]
   agents      Agent[]
+  photographers Photographer[]
+  bookingStatuses BookingStatus[]
   auditLogs   AuditLog[]
   webhooks    Webhook[]
   settings    TenantSettings?
   invitations Invitation[]
   newsletters Newsletter[]
+  notifications Notification[]
+  blockouts   Blockout[]
+  requests    Request[]
+  editRequests EditRequest[]
+  completedCollections CompletedCollection[]
 
   @@map("tenants")
 }
@@ -215,12 +231,59 @@ model Agent {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Photographer permissions
+  viewCalendar        Boolean @default(true)
+  viewBlankedBookings Boolean @default(true)
+  viewAllBookings     Boolean @default(true)
+  viewInvoice         Boolean @default(true)
+  deleteGallery       Boolean @default(true)
+  viewAllGallery      Boolean @default(true)
+  viewService         Boolean @default(true)
+  addGalleries        Boolean @default(true)
+  viewClients         Boolean @default(true)
+
   // Relations
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   creator  User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  requests Request[]
+  editRequests EditRequest[]
 
   @@map("agents")
+}
+
+model Photographer {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  profileImage String? // URL to profile image
+  role        String   // e.g., "Lead Photographer", "Senior Photographer"
+  isActive    Boolean  @default(true)
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Photographer permissions
+  viewCalendar        Boolean @default(true)
+  viewBlankedBookings Boolean @default(true)
+  viewAllBookings     Boolean @default(true)
+  viewInvoice         Boolean @default(true)
+  deleteGallery       Boolean @default(true)
+  viewAllGallery      Boolean @default(true)
+  viewService         Boolean @default(true)
+  addGalleries        Boolean @default(true)
+  viewClients         Boolean @default(true)
+
+  // Relations
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator  User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  bookings Booking[] @relation("BookingPhotographer")
+  editRequests EditRequest[]
+
+  @@map("photographers")
 }
 
 model Client {
@@ -243,6 +306,9 @@ model Client {
   bookings Booking[]
   invoices Invoice[]
   newsletters NewsletterRecipient[]
+  notifications Notification[]
+  requests Request[]
+  editRequests EditRequest[]
 
   @@map("clients")
 }
@@ -252,11 +318,14 @@ model Booking {
   title         String
   start         DateTime
   end           DateTime
-  status        String @default("TENTATIVE") // TENTATIVE, CONFIRMED, PENCILED, CANCELLED, REQUEST
+  status        String @default("TENTATIVE") // Now references BookingStatus.name
   clientId      String?
+  agentId       String?  // Reference to Agent (client contact)
+  photographerId String? // Reference to Agent (photographer assigned)
   address       String?
   notes         String?
   durationM     Int      @default(60)
+  services      String?  // JSON string of service IDs
   tenantId      String
   createdBy     String
   createdAt     DateTime @default(now())
@@ -266,13 +335,38 @@ model Booking {
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   creator   User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   client    Client? @relation(fields: [clientId], references: [id])
+  agent     Agent? @relation(fields: [agentId], references: [id])
+  photographer Photographer? @relation("BookingPhotographer", fields: [photographerId], references: [id])
   galleries Gallery[]
   assignments Assignment[]
+  notifications Notification[]
+  requests  Request[]
+  editRequests EditRequest[]
 
   @@map("bookings")
 }
 
-// BookingStatus enum - will be handled as string in SQLite
+// BookingStatus model for custom status management
+
+model BookingStatus {
+  id          String   @id @default(cuid())
+  name        String   // The status name (e.g., "Tenanted Property", "Owner Occupied")
+  color       String?  @default("#6B7280") // Hex color for display
+  isDefault   Boolean  @default(false) // Whether this is a default status
+  isActive    Boolean  @default(true)
+  order       Int      @default(0) // Display order
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@unique([name, tenantId]) // Each tenant can have unique status names
+  @@map("booking_statuses")
+}
 
 model Gallery {
   id          String   @id @default(cuid())
@@ -293,6 +387,8 @@ model Gallery {
   creator  User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   booking  Booking? @relation(fields: [bookingId], references: [id])
   images   GalleryImage[]
+  notifications Notification[]
+  editRequests EditRequest[]
 
   @@map("galleries")
 }
@@ -330,6 +426,7 @@ model Invoice {
   tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   client  Client? @relation(fields: [clientId], references: [id])
+  notifications Notification[]
 
   @@map("invoices")
 }
@@ -436,6 +533,54 @@ model Newsletter {
   @@map("newsletters")
 }
 
+// ===== NOTIFICATION MODELS =====
+
+model Notification {
+  id          String   @id @default(cuid())
+  title       String
+  message     String
+  type        String   // booking, gallery, invoice, system, reminder, etc.
+  category    String   // info, warning, error, success
+  priority    String   @default("normal") // low, normal, high, urgent
+  status      String   @default("unread") // unread, read, archived
+  isRead      Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  
+  // Related entities
+  bookingId   String?
+  galleryId   String?
+  invoiceId   String?
+  clientId    String?
+  userId      String?  // Target user (if specific user notification)
+  
+  // Metadata
+  data        String?  // JSON string for additional data
+  actionUrl   String?  // URL to navigate when clicked
+  actionText  String?  // Text for action button
+  
+  // Tenant and user context
+  tenantId    String
+  createdBy   String?  // Who created this notification (null for system)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  readAt      DateTime?
+  archivedAt  DateTime?
+  expiresAt   DateTime? // Optional expiration date
+
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator     User?  @relation("NotificationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  targetUser  User?  @relation("NotificationTarget", fields: [userId], references: [id], onDelete: Cascade)
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  gallery     Gallery? @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  client      Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
 model NewsletterContent {
   id           String   @id @default(cuid())
   newsletterId String
@@ -496,4 +641,117 @@ model Image {
   uploader    User   @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
 
   @@map("images")
+}
+
+// ===== BLOCKOUT MODEL =====
+// For blocked time periods (studiio.blockouts.v1)
+
+model Blockout {
+  id          String   @id @default(cuid())
+  title       String
+  start       DateTime
+  end         DateTime
+  type        String   @default("blockout") // blockout, vacation, maintenance
+  notes       String?
+  isAllDay    Boolean  @default(false)
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("blockouts")
+}
+
+// ===== REQUEST MODEL =====
+// For client requests and inquiries (requests localStorage)
+
+model Request {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   @default("general") // general, booking, edit, inquiry
+  status      String   @default("pending") // pending, approved, rejected, in_review
+  priority    String   @default("normal") // low, normal, high, urgent
+  clientId    String?
+  agentId     String?
+  bookingId   String?  // Related booking if applicable
+  data        String?  // JSON string for additional data
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  client  Client? @relation(fields: [clientId], references: [id])
+  agent   Agent? @relation(fields: [agentId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@map("requests")
+}
+
+// ===== EDIT REQUEST MODEL =====
+// For photo editing requests (editRequests localStorage)
+
+model EditRequest {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("pending") // pending, in_progress, completed, rejected
+  priority    String   @default("normal") // low, normal, high, urgent
+  galleryId   String?  // Related gallery
+  bookingId   String?  // Related booking
+  clientId    String?
+  agentId     String?
+  photographerId String? // Assigned photographer
+  editorId    String?  // Assigned editor
+  data        String?  // JSON string for additional data (images, notes, etc.)
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  // Relations
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator     User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  client      Client? @relation(fields: [clientId], references: [id])
+  agent       Agent? @relation(fields: [agentId], references: [id])
+  photographer Photographer? @relation(fields: [photographerId], references: [id])
+  editor      User? @relation("EditRequestEditor", fields: [editorId], references: [id])
+  gallery     Gallery? @relation(fields: [galleryId], references: [id])
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+
+  @@map("edit_requests")
+}
+
+// ===== COMPLETED COLLECTION MODEL =====
+// For completed work collections (studiio.completed.v1)
+
+model CompletedCollection {
+  id            String   @id @default(cuid())
+  title         String
+  address       String
+  client        String
+  company       String
+  services      String   // JSON string of services
+  photographers String   // JSON string of photographers
+  status        String   @default("completed") // completed, delivered, archived
+  notes         String?
+  data          String?  // JSON string for additional data
+  tenantId      String
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("completed_collections")
 }

@@ -259,7 +259,8 @@ const mockCompanies = [
   "Luxury Hospitality Group"
 ];
 
-export default function EditCompanyProfilePage({ params }: { params: { id: string } }) {
+export default function EditCompanyProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const [id, setId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -271,14 +272,41 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
   const modalInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  // Logo state
+  const [showLogoModal, setShowLogoModal] = useState(false);
+  const [tempLogo, setTempLogo] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [showLogoSuccessMessage, setShowLogoSuccessMessage] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Get id from params
+  useEffect(() => {
+    params.then(({ id: paramId }) => {
+      setId(paramId);
+    });
+  }, [params]);
 
   // Load saved banner for this company if present
   useEffect(()=>{
+    const companyId = id || (params as any).id;
+    if (!companyId) return;
     try {
-      const saved = localStorage.getItem(`studiio.company.banner.${params.id}`);
+      const saved = localStorage.getItem(`studiio.company.banner.${companyId}`);
       if (saved) setBannerUrl(saved);
     } catch {}
-  },[params.id]);
+  },[id, params]);
+
+  // Load saved logo for this company if present
+  useEffect(()=>{
+    const companyId = id || (params as any).id;
+    if (!companyId) return;
+    try {
+      const saved = localStorage.getItem(`studiio.company.logo.${companyId}`);
+      if (saved) setLogoUrl(saved);
+    } catch {}
+  },[id, params]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -359,7 +387,7 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
   return (
     <div>
       <Sidebar />
-      <div className="ml-68 min-h-screen bg-gray-50">
+      <div className="lg:ml-16 min-h-screen bg-gray-50 transition-all duration-300">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
@@ -375,7 +403,7 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
           </div>
         </div>
 
-        <div className="container mx-auto p-6">
+        <div className="w-full p-6">
           {/* Company Profile Section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
             {/* Banner */}
@@ -406,8 +434,21 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
             <div className="px-6 pb-6 relative">
               {/* Profile Picture */}
               <div className="flex justify-center -mt-20 mb-4">
-                <div className="h-32 w-32 rounded-full bg-gray-200 border-4 border-white shadow-lg flex items-center justify-center text-4xl">
-                  🏢
+                <div className="relative group">
+                  <div className="h-32 w-32 rounded-full bg-gray-200 border-4 border-white shadow-lg flex items-center justify-center text-4xl overflow-hidden">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Company Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>🏢</span>
+                    )}
+                  </div>
+                  <button
+                    className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#e9f9f0] border-2 border-white rounded-full flex items-center justify-center text-gray-600 hover:bg-[#b7e7cc] transition-colors opacity-0 group-hover:opacity-100"
+                    onClick={() => setShowLogoModal(true)}
+                    title="Edit Logo"
+                  >
+                    ✏️
+                  </button>
                 </div>
               </div>
 
@@ -801,7 +842,13 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
             </div>
             <div className="p-4 space-y-4">
               <div
-                className={`border-2 rounded-lg p-6 text-center cursor-pointer ${isDragging ? 'border-teal-500 border-dashed bg-teal-50' : 'border-dashed'}`}
+                className={`border-2 rounded-lg p-6 text-center cursor-pointer transition-all duration-200 ${
+                  isDragging 
+                    ? 'border-[#b7e7cc] border-dashed bg-[#e9f9f0]' 
+                    : tempBanner || bannerUrl 
+                      ? 'border-gray-300' 
+                      : 'border-dashed border-gray-300 hover:border-[#b7e7cc] hover:bg-[#e9f9f0]'
+                }`}
                 onDragOver={(e)=>{ e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={()=> setIsDragging(false)}
                 onDrop={(e)=>{
@@ -809,17 +856,74 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
                   setIsDragging(false);
                   const file = e.dataTransfer.files?.[0];
                   if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => setTempBanner(String(reader.result));
-                  reader.readAsDataURL(file);
+                  
+                  // Validate file type
+                  if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file (JPEG, PNG, GIF, WebP)');
+                    return;
+                  }
+                  
+                  // Validate file size (5MB max)
+                  if (file.size > 5 * 1024 * 1024) {
+                    alert('File size must be less than 5MB');
+                    return;
+                  }
+                  
+                  // Compress the image before storing
+                  const canvas = document.createElement('canvas');
+                  const ctx = canvas.getContext('2d');
+                  const img = new Image();
+                  
+                  img.onload = () => {
+                    // Calculate new dimensions (max 800px width, maintain aspect ratio)
+                    const maxWidth = 800;
+                    const maxHeight = 400;
+                    let { width, height } = img;
+                    
+                    if (width > maxWidth) {
+                      height = (height * maxWidth) / width;
+                      width = maxWidth;
+                    }
+                    if (height > maxHeight) {
+                      width = (width * maxHeight) / height;
+                      height = maxHeight;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw and compress
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+                    setTempBanner(compressedDataUrl);
+                  };
+                  
+                  img.src = URL.createObjectURL(file);
                 }}
                 onClick={()=> modalInputRef.current?.click()}
               >
                 {tempBanner || bannerUrl ? (
-                  <img src={tempBanner || bannerUrl || ''} alt="Banner preview" className="w-full h-40 object-cover rounded" />
+                  <div className="relative">
+                    <img src={tempBanner || bannerUrl || ''} alt="Banner preview" className="w-full h-40 object-cover rounded" />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 rounded flex items-center justify-center">
+                      <span className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200 text-sm font-medium">
+                        Click to change image
+                      </span>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="text-sm text-gray-600">
-                    Drag & drop an image here, or click to choose one
+                  <div className="py-8">
+                    <div className="mx-auto w-12 h-12 mb-4 text-gray-400">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      Drag & drop an image here, or click to select
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Supports: JPEG, PNG, GIF, WebP (Max 5MB)
+                    </div>
                   </div>
                 )}
                 <input
@@ -830,26 +934,338 @@ export default function EditCompanyProfilePage({ params }: { params: { id: strin
                   onChange={(e)=>{
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = () => setTempBanner(String(reader.result));
-                    reader.readAsDataURL(file);
+                    
+                    // Validate file type
+                    if (!file.type.startsWith('image/')) {
+                      alert('Please select an image file (JPEG, PNG, GIF, WebP)');
+                      return;
+                    }
+                    
+                    // Validate file size (5MB max)
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert('File size must be less than 5MB');
+                      return;
+                    }
+                    
+                    // Compress the image before storing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                      // Calculate new dimensions (max 800px width, maintain aspect ratio)
+                      const maxWidth = 800;
+                      const maxHeight = 400;
+                      let { width, height } = img;
+                      
+                      if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                      }
+                      if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                      }
+                      
+                      canvas.width = width;
+                      canvas.height = height;
+                      
+                      // Draw and compress
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+                      setTempBanner(compressedDataUrl);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
                   }}
                 />
               </div>
               <div className="flex items-center justify-end gap-2">
-                <button className="px-4 py-2 bg-gray-600 text-white rounded-lg" onClick={()=>{ setTempBanner(null); setShowBannerModal(false); }}>Cancel</button>
-                <button className="px-4 py-2 bg-teal-600 text-white rounded-lg" onClick={()=>{
-                  if (tempBanner){
-                    setBannerUrl(tempBanner);
-                    try { localStorage.setItem(`studiio.company.banner.${params.id}`, tempBanner); } catch {}
-                  }
-                  setShowBannerModal(false);
-                }}>Save</button>
+                <button 
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors" 
+                  onClick={()=>{ 
+                    setTempBanner(null); 
+                    setShowBannerModal(false); 
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="px-4 py-2 bg-[#e9f9f0] text-black border border-[#b7e7cc] rounded-lg hover:bg-[#b7e7cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                  disabled={!tempBanner}
+                  onClick={()=>{
+                    if (tempBanner){
+                      setBannerUrl(tempBanner);
+                      try { 
+                        // Use params.id directly if id state is not set
+                        const companyId = id || (params as any).id;
+                        if (!companyId) {
+                          alert('Company ID not found. Please refresh the page and try again.');
+                          return;
+                        }
+                        try {
+                          localStorage.setItem(`studiio.company.banner.${companyId}`, tempBanner); 
+                          setShowSuccessMessage(true);
+                          setTimeout(() => setShowSuccessMessage(false), 3000);
+                        } catch (quotaError) {
+                          // If localStorage is full, clear old banner data for THIS client only and try again
+                          console.warn('localStorage quota exceeded, clearing old banner data for this client...');
+                          localStorage.removeItem(`studiio.company.banner.${companyId}`);
+                          try {
+                            localStorage.setItem(`studiio.company.banner.${companyId}`, tempBanner);
+                            setShowSuccessMessage(true);
+                            setTimeout(() => setShowSuccessMessage(false), 3000);
+                          } catch (stillFullError) {
+                            // If still full, try clearing some other old data
+                            console.warn('Still full, clearing some old logo data...');
+                            const logoKeys = Object.keys(localStorage).filter(key => key.startsWith('studiio.company.logo.'));
+                            if (logoKeys.length > 0) {
+                              localStorage.removeItem(logoKeys[0]); // Remove oldest logo
+                            }
+                            localStorage.setItem(`studiio.company.banner.${companyId}`, tempBanner);
+                            setShowSuccessMessage(true);
+                            setTimeout(() => setShowSuccessMessage(false), 3000);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Failed to save banner:', error);
+                        alert('Failed to save banner. Please try again.');
+                      }
+                    }
+                    setShowBannerModal(false);
+                  }}
+                >
+                  Save Banner
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 bg-[#e9f9f0] border border-[#b7e7cc] text-black px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2">
+          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <span className="font-medium">Banner image saved successfully!</span>
+        </div>
+      )}
+
+      {/* Logo Upload Modal */}
+      {showLogoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Upload Company Logo</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  setShowLogoModal(false);
+                  setTempLogo(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div
+                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#b7e7cc] transition-colors"
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith('image/')) {
+                    if (file.size > 2 * 1024 * 1024) {
+                      alert('File size must be less than 2MB');
+                      return;
+                    }
+                    
+                    // Compress the logo before storing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                      // Calculate new dimensions (max 200x200px for logo)
+                      const maxSize = 200;
+                      let { width, height } = img;
+                      
+                      if (width > height) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                      } else {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                      }
+                      
+                      canvas.width = width;
+                      canvas.height = height;
+                      
+                      // Draw and compress
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8); // 80% quality for logo
+                      setTempLogo(compressedDataUrl);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {tempLogo ? (
+                  <div className="relative">
+                    <img src={tempLogo} alt="Logo preview" className="w-32 h-32 object-cover rounded-full mx-auto" />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 rounded-full flex items-center justify-center">
+                      <span className="text-white opacity-0 hover:opacity-100 transition-opacity duration-200 text-sm font-medium">
+                        Click to change logo
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-600 mb-2">Drag & drop your logo here</p>
+                    <p className="text-sm text-gray-400">or click to browse</p>
+                    <p className="text-xs text-gray-400 mt-2">Max 2MB, JPG/PNG</p>
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                ref={logoInputRef}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (!file.type.startsWith('image/')) {
+                      alert('Please select an image file');
+                      return;
+                    }
+                    // Validate file size (2MB max for logo)
+                    if (file.size > 2 * 1024 * 1024) {
+                      alert('File size must be less than 2MB');
+                      return;
+                    }
+                    
+                    // Compress the logo before storing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                      // Calculate new dimensions (max 200x200px for logo)
+                      const maxSize = 200;
+                      let { width, height } = img;
+                      
+                      if (width > height) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                      } else {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                      }
+                      
+                      canvas.width = width;
+                      canvas.height = height;
+                      
+                      // Draw and compress
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8); // 80% quality for logo
+                      setTempLogo(compressedDataUrl);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button 
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors" 
+                onClick={() => {
+                  setShowLogoModal(false);
+                  setTempLogo(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="px-4 py-2 bg-[#e9f9f0] text-black border border-[#b7e7cc] rounded-lg hover:bg-[#b7e7cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                disabled={!tempLogo}
+                onClick={()=>{
+                  if (tempLogo){
+                    setLogoUrl(tempLogo);
+                    try { 
+                      // Use params.id directly if id state is not set
+                      const companyId = id || (params as any).id;
+                      if (!companyId) {
+                        alert('Company ID not found. Please refresh the page and try again.');
+                        return;
+                      }
+                      try {
+                        localStorage.setItem(`studiio.company.logo.${companyId}`, tempLogo); 
+                        setShowLogoSuccessMessage(true);
+                        setTimeout(() => setShowLogoSuccessMessage(false), 3000);
+                      } catch (quotaError) {
+                        // If localStorage is full, clear old logo data for THIS client only and try again
+                        console.warn('localStorage quota exceeded, clearing old logo data for this client...');
+                        localStorage.removeItem(`studiio.company.logo.${companyId}`);
+                        try {
+                          localStorage.setItem(`studiio.company.logo.${companyId}`, tempLogo);
+                          setShowLogoSuccessMessage(true);
+                          setTimeout(() => setShowLogoSuccessMessage(false), 3000);
+                        } catch (stillFullError) {
+                          // If still full, try clearing some other old data
+                          console.warn('Still full, clearing some old banner data...');
+                          const bannerKeys = Object.keys(localStorage).filter(key => key.startsWith('studiio.company.banner.'));
+                          if (bannerKeys.length > 0) {
+                            localStorage.removeItem(bannerKeys[0]); // Remove oldest banner
+                          }
+                          localStorage.setItem(`studiio.company.logo.${companyId}`, tempLogo);
+                          setShowLogoSuccessMessage(true);
+                          setTimeout(() => setShowLogoSuccessMessage(false), 3000);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Failed to save logo:', error);
+                      alert('Failed to save logo. Please try again.');
+                    }
+                  }
+                  setShowLogoModal(false);
+                }}
+              >
+                Save Logo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logo Success Message */}
+      {showLogoSuccessMessage && (
+        <div className="fixed top-4 right-4 bg-[#e9f9f0] border border-[#b7e7cc] text-black px-4 py-2 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600">✓</span>
+            <span className="font-medium">Logo saved successfully!</span>
           </div>
         </div>
       )}
     </div>
   );
 }
+

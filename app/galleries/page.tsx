@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import PageLayout from "@/components/PageLayout";
+import Sidebar from "@/components/Sidebar";
 import { Edit, Trash2, Copy, Eye, Plus, Grid3X3, List, X, Upload, Search, CheckCircle } from "lucide-react";
 import BookingDropdown from "@/components/BookingDropdown";
 import PhotographerDropdown from "@/components/PhotographerDropdown";
@@ -722,7 +723,9 @@ export default function GalleriesPage() {
   }, []);
 
   return (
-    <PageLayout>
+    <>
+      <Sidebar />
+      <PageLayout>
       <div className="container mx-auto p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Galleries</h1>
@@ -1517,7 +1520,8 @@ export default function GalleriesPage() {
             Pre-fill Test Data
           </button>
         </div>
-    </PageLayout>
+      </PageLayout>
+    </>
   );
 }
 

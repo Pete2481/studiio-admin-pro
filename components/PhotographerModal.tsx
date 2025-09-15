@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { User, X } from "lucide-react";
+import ProfilePhotoUpload from "./ProfilePhotoUpload";
 
 export type Photographer = {
   id: string;
@@ -31,12 +32,16 @@ export default function PhotographerModal({
   onClose,
   onSave,
   onDelete,
+  tenantId,
+  uploadedBy,
 }: {
   open: boolean;
   initial?: Partial<Photographer>;
   onClose: () => void;
   onSave: (photographer: Photographer) => void;
   onDelete?: (id: string) => void;
+  tenantId?: string;
+  uploadedBy?: string;
 }) {
   const [draft, setDraft] = useState<Photographer>({
     id: initial?.id || crypto.randomUUID(),
@@ -114,19 +119,14 @@ export default function PhotographerModal({
           </button>
         </div>
 
-        {/* Profile Picture Section */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-3xl">
-            {draft.avatar}
-          </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
-              Change
-            </button>
-            <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-              Reset
-            </button>
-          </div>
+        {/* Profile Photo Upload Section */}
+        <div className="mb-6">
+          <ProfilePhotoUpload
+            currentPhoto={draft.avatar.startsWith('http') || draft.avatar.startsWith('/') ? draft.avatar : undefined}
+            onPhotoChange={(photoUrl) => setDraft({ ...draft, avatar: photoUrl || "👤" })}
+            tenantId={tenantId || "business-media-drive"}
+            uploadedBy={uploadedBy || "admin"}
+          />
         </div>
 
         {/* Personal Details - Two Columns */}
@@ -187,10 +187,11 @@ export default function PhotographerModal({
             <input
               type="text"
               value={draft.company}
-              onChange={(e) => setDraft({ ...draft, company: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
               placeholder="Company name"
             />
+            <p className="text-xs text-gray-500 mt-1">Company assignment cannot be changed here</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>

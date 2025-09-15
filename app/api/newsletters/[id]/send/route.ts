@@ -3,10 +3,11 @@ import { markNewsletterAsSent } from '@/src/server/actions/newsletter.actions';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await markNewsletterAsSent(params.id);
+    const { id } = await params;
+    const result = await markNewsletterAsSent(id);
     
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });

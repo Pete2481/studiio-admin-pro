@@ -44,9 +44,13 @@ export const CreateBookingSchema = z.object({
   start: z.date(),
   end: z.date(),
   clientId: z.string().optional(),
+  agentId: z.string().optional(),
+  photographerId: z.string().optional(),
+  status: BookingStatusSchema.optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
   durationM: z.number().min(1).default(60),
+  services: z.string().optional(), // JSON string of service IDs
 });
 
 export type CreateBookingData = z.infer<typeof CreateBookingSchema>;
@@ -153,15 +157,24 @@ export const CreateAgentSchema = z.object({
   name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
-  profileImage: z.string().url().optional(),
+  profileImage: z.string().optional(), // Allow emojis, not just URLs
   role: z.string().min(1),
+  isActive: z.boolean().optional(),
+  // Photographer permissions
+  viewCalendar: z.boolean().optional(),
+  viewBlankedBookings: z.boolean().optional(),
+  viewAllBookings: z.boolean().optional(),
+  viewInvoice: z.boolean().optional(),
+  deleteGallery: z.boolean().optional(),
+  viewAllGallery: z.boolean().optional(),
+  viewService: z.boolean().optional(),
+  addGalleries: z.boolean().optional(),
+  viewClients: z.boolean().optional(),
 });
 
 export type CreateAgentData = z.infer<typeof CreateAgentSchema>;
 
-export const UpdateAgentSchema = CreateAgentSchema.partial().extend({
-  isActive: z.boolean().optional(),
-});
+export const UpdateAgentSchema = CreateAgentSchema.partial();
 
 export type UpdateAgentData = z.infer<typeof UpdateAgentSchema>;
 
