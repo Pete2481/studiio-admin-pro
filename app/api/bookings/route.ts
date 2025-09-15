@@ -21,7 +21,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const newBooking = await bookingRepo.create(body);
+    
+    // Use the correct Master Admin user ID that exists in the database
+    const bookingData = {
+      ...body,
+      createdBy: 'cmfkr33hf000013jn92d7t29y' // Master Admin user ID
+    };
+    
+    const newBooking = await bookingRepo.create(bookingData);
     return NextResponse.json({ success: true, booking: newBooking });
   } catch (error) {
     console.error("Error creating booking:", error);
