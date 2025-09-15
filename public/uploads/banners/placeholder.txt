@@ -10,3 +10,4 @@ The upload API will save new banner images with timestamps:
 - banner_1234567891.png
 etc.
 
+

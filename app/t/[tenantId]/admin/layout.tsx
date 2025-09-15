@@ -1,4 +1,5 @@
 "use client";
+import AdminNotification from "@/components/AdminNotification";
 
 export default function AdminLayout({
   children,
@@ -7,6 +8,7 @@ export default function AdminLayout({
 }) {
   return (
     <>
+      <AdminNotification />
       {children}
     </>
   );
