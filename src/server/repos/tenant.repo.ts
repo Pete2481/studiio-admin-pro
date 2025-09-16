@@ -1,6 +1,7 @@
-import { PrismaClient, Tenant } from '@prisma/client';
+import { PrismaClient, Tenant } from '@prisma/client/edge';
+import {withAccelerate} from "@prisma/extension-accelerate";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient().$extends(withAccelerate())
 
 export class TenantsRepository {
   async findBySlug(slug: string): Promise<Tenant | null> {
