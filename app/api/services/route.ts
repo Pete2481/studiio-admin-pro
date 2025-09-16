@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { PrismaClient } from '@prisma/client/edge'
+import { withAccelerate } from '@prisma/extension-accelerate'
+
+const prisma = new PrismaClient().$extends(withAccelerate())
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const tenantSlug = searchParams.get('tenant') || 'business-media-drive';
 
-    // Get the tenant ID from the slug
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
-    
     const tenant = await prisma.tenant.findUnique({
       where: { slug: tenantSlug }
     });
@@ -47,9 +48,9 @@ export async function GET(request: NextRequest) {
 
     await prisma.$disconnect();
 
-    return NextResponse.json({ 
-      ok: true, 
-      data: transformedServices 
+    return NextResponse.json({
+      ok: true,
+      data: transformedServices
     });
   } catch (error) {
     console.error('Error fetching services:', error);

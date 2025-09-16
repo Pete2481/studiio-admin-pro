@@ -1,7 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client/edge'
+import { withAccelerate } from '@prisma/extension-accelerate'
 import { generateToken } from '../lib/utils';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient().$extends(withAccelerate())
 
 async function main() {
   console.log('🌱 Starting database seed...');
@@ -81,7 +82,7 @@ async function main() {
   //     salesVolume: '$1.2B',
   //     permissions: JSON.stringify([
   //       'View Calendar',
-  //       'View Blanked out Bookings', 
+  //       'View Blanked out Bookings',
   //       'View Invoice',
   //       'View Service'
   //     ]),

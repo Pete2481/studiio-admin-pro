@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client/edge'
+import { withAccelerate } from '@prisma/extension-accelerate'
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient().$extends(withAccelerate())
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,14 +18,14 @@ export async function GET(req: NextRequest) {
     const stream = new ReadableStream({
       start(controller) {
         let isClosed = false;
-        
+
         // Send initial connection message
         controller.enqueue(`data: ${JSON.stringify({ type: 'connected', message: 'Connected to admin notifications' })}\n\n`);
-        
+
         // Set up polling for new bookings
         const pollNotifications = async () => {
           if (isClosed) return;
-          
+
           try {
             // Check for new bookings (created in the last 10 seconds)
             const recentBookings = await prisma.booking.findMany({
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
               orderBy: { createdAt: 'desc' },
               take: 1
             });
-            
+
             if (recentBookings.length > 0 && !isClosed) {
               const latestBooking = recentBookings[0];
               controller.enqueue(`data: ${JSON.stringify({ 
@@ -63,13 +64,13 @@ export async function GET(req: NextRequest) {
             }
           }
         };
-        
+
         // Poll every 3 seconds for more responsive notifications
         const interval = setInterval(pollNotifications, 3000);
-        
+
         // Initial poll
         pollNotifications();
-        
+
         // Clean up on disconnect
         const cleanup = () => {
           isClosed = true;
@@ -80,13 +81,13 @@ export async function GET(req: NextRequest) {
             // Controller might already be closed
           }
         };
-        
+
         req.signal.addEventListener('abort', cleanup);
       }
     });
 
     return new Response(stream, { headers });
-    
+
   } catch (error) {
     console.error('SSE setup error:', error);
     return Response.json({ error: 'Server error' }, { status: 500 });
