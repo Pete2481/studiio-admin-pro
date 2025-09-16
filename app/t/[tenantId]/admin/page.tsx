@@ -405,7 +405,7 @@ export default function SubAdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Galleries</p>
-                  <p className="text-2xl font-bold text-gray-900">246</p>
+                  <p className="text-2xl font-bold text-gray-900">500</p>
                   <div className="flex items-center mt-2">
                     <TrendingUpIcon className="w-4 h-4 text-green-500 mr-1" />
                     <span className="text-sm font-medium text-green-600">↑ 11.3%</span>
