@@ -67,15 +67,10 @@ export default function ClientInvoicesPage() {
 
   // Fetch client-specific invoices
   const fetchInvoices = async () => {
-    if (!currentClient?.id || !currentTenant?.id) {
-      setInvoices([]);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`/api/client/invoices?clientId=${currentClient.id}&tenantId=${currentTenant.id}`);
+      const response = await fetch("/api/client/invoices");
       const data = await response.json();
 
       if (data.success) {
@@ -93,10 +88,10 @@ export default function ClientInvoicesPage() {
     }
   };
 
-  // Fetch invoices when client or tenant changes
+  // Fetch invoices on component mount
   useEffect(() => {
     fetchInvoices();
-  }, [currentClient?.id, currentTenant?.id]);
+  }, []);
 
   if (!currentClient) {
     return (

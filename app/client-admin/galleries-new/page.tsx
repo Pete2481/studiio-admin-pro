@@ -51,15 +51,10 @@ export default function ClientGalleriesPage() {
 
   // Fetch client-specific galleries
   const fetchGalleries = async () => {
-    if (!currentClient?.id || !currentTenant?.id) {
-      setGalleries([]);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`/api/client/galleries?clientId=${currentClient.id}&tenantId=${currentTenant.id}`);
+      const response = await fetch("/api/client/galleries");
       const data = await response.json();
 
       if (data.success) {
@@ -77,10 +72,10 @@ export default function ClientGalleriesPage() {
     }
   };
 
-  // Fetch galleries when client or tenant changes
+  // Fetch galleries on component mount
   useEffect(() => {
     fetchGalleries();
-  }, [currentClient?.id, currentTenant?.id]);
+  }, []);
 
   if (!currentClient) {
     return (

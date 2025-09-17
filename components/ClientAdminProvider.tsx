@@ -83,14 +83,19 @@ export function ClientAdminProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTenant?.id, currentClient]);
 
-  // Check client authentication
+  // Check client authentication using unified auth system
   const checkClientAuth = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/client-me');
+      const response = await fetch('/api/auth/me');
       if (response.ok) {
         const data = await response.json();
-        setClientAuth(data);
-        setIsClientAdminMode(true);
+        if (data.success && data.user.role === "CLIENT") {
+          setClientAuth(data);
+          setIsClientAdminMode(true);
+        } else {
+          setClientAuth(null);
+          setIsClientAdminMode(false);
+        }
       } else {
         setClientAuth(null);
         setIsClientAdminMode(false);

@@ -71,21 +71,42 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // For clients, find the associated client record
+    let clientId = null;
+    if (tenantUser.role === "CLIENT") {
+      const client = await prisma.client.findFirst({
+        where: {
+          tenantId: tenantUser.tenant.id,
+          email: user.email
+        }
+      });
+      if (client) {
+        clientId = client.id;
+      }
+    }
+
     // Create JWT token
+    const tokenPayload: any = {
+      userId: user.id,
+      email: user.email,
+      tenantId: tenantUser.tenant.id,
+      role: tenantUser.role,
+      tenantSlug: tenantUser.tenant.slug
+    };
+
+    // Add clientId for client users
+    if (clientId) {
+      tokenPayload.clientId = clientId;
+    }
+
     const token = sign(
-      {
-        userId: user.id,
-        email: user.email,
-        tenantId: tenantUser.tenant.id,
-        role: tenantUser.role,
-        tenantSlug: tenantUser.tenant.slug
-      },
+      tokenPayload,
       process.env.NEXTAUTH_SECRET || "fallback-secret",
       { expiresIn: "7d" }
     );
 
     // Set cookie
-    const response = NextResponse.json({
+    const responseData: any = {
       success: true,
       user: {
         id: user.id,
@@ -98,7 +119,22 @@ export async function POST(request: NextRequest) {
         slug: tenantUser.tenant.slug
       },
       role: tenantUser.role
-    });
+    };
+
+    // Add client information for client users
+    if (clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: clientId }
+      });
+      if (client) {
+        responseData.client = {
+          id: client.id,
+          name: client.name
+        };
+      }
+    }
+
+    const response = NextResponse.json(responseData);
 
     response.cookies.set("auth-token", token, {
       httpOnly: true,

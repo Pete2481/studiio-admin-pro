@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Get the current tenant (from the token)
     const currentTenant = user.userTenants.find(ut => ut.tenantId === decoded.tenantId);
 
-    return NextResponse.json({
+    const responseData: any = {
       success: true,
       user: {
         id: user.id,
@@ -54,7 +54,22 @@ export async function GET(request: NextRequest) {
           slug: decoded.tenantSlug
         }
       }
-    });
+    };
+
+    // Add client information if this is a client user
+    if (decoded.role === "CLIENT" && decoded.clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: decoded.clientId }
+      });
+      if (client) {
+        responseData.client = {
+          id: client.id,
+          name: client.name
+        };
+      }
+    }
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Error fetching user info:', error);

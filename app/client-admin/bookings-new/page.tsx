@@ -83,15 +83,10 @@ export default function ClientBookingsPage() {
 
   // Fetch client-specific bookings
   const fetchBookings = async () => {
-    if (!currentClient?.id || !currentTenant?.id) {
-      setBookings([]);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`/api/client/bookings?clientId=${currentClient.id}&tenantId=${currentTenant.id}`);
+      const response = await fetch("/api/client/bookings");
       const data = await response.json();
 
       if (data.success) {
@@ -109,10 +104,10 @@ export default function ClientBookingsPage() {
     }
   };
 
-  // Fetch bookings when client or tenant changes
+  // Fetch bookings on component mount
   useEffect(() => {
     fetchBookings();
-  }, [currentClient?.id, currentTenant?.id]);
+  }, []);
 
   if (!currentClient) {
     return (
