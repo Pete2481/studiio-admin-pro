@@ -2,25 +2,49 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, ArrowRight, Building2 } from "lucide-react";
+import { Mail, ArrowRight, Building2, User, Calendar, FileText } from "lucide-react";
+
+interface Client {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: {
+    id: string;
+    name: string;
+  };
+  tenantId: string;
+  role: string;
+  _count?: {
+    bookings: number;
+    invoices: number;
+  };
+}
 
 interface Tenant {
   id: string;
   name: string;
   slug: string;
-  role: string;
 }
 
-export default function LoginPage() {
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+export default function ClientLoginPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [showTenantSelection, setShowTenantSelection] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [showClientSelection, setShowClientSelection] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [otp, setOtp] = useState("");
   const [showOtp, setShowOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -37,7 +61,7 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await fetch("/api/auth/check-email", {
+      const response = await fetch("/api/auth/client-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail }),
@@ -49,16 +73,20 @@ export default function LoginPage() {
         throw new Error(data.error || "Failed to check email");
       }
 
-      if (data.tenants.length === 0) {
-        setError("No accounts found with this email address");
-      } else if (data.tenants.length === 1) {
-        // Single tenant - skip selection and send OTP
-        setSelectedTenant(data.tenants[0]);
+      if (data.clients.length === 0) {
+        setError("No client accounts found with this email address");
+      } else if (data.clients.length === 1) {
+        // Single client - skip selection and send OTP
+        setSelectedClient(data.clients[0]);
+        setTenant(data.tenant);
+        setUser(data.user);
         await sendOTP(cleanEmail);
       } else {
-        // Multiple tenants - show selection
-        setTenants(data.tenants);
-        setShowTenantSelection(true);
+        // Multiple clients - show selection
+        setClients(data.clients);
+        setTenant(data.tenant);
+        setUser(data.user);
+        setShowClientSelection(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -67,9 +95,9 @@ export default function LoginPage() {
     }
   };
 
-  const handleTenantSelect = async (tenant: Tenant) => {
-    setSelectedTenant(tenant);
-    setShowTenantSelection(false);
+  const handleClientSelect = async (client: Client) => {
+    setSelectedClient(client);
+    setShowClientSelection(false);
     await sendOTP(email);
   };
 
@@ -101,19 +129,19 @@ export default function LoginPage() {
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTenant) return;
+    if (!selectedClient) return;
 
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/client-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           otp,
-          tenantId: selectedTenant.id,
+          clientId: selectedClient.id,
         }),
       });
 
@@ -123,52 +151,12 @@ export default function LoginPage() {
         throw new Error(data.error || "Login failed");
       }
 
-      // Redirect to appropriate dashboard
-      if (selectedTenant.role === "MASTER_ADMIN" || selectedTenant.role === "SUB_ADMIN") {
-        router.push(`/t/${selectedTenant.slug}/admin`);
-      } else if (selectedTenant.role === "CLIENT") {
-        router.push(`/client-admin`);
-      } else {
-        router.push(`/t/${selectedTenant.slug}/admin`);
-      }
+      // Redirect to client admin
+      router.push("/client-admin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "MASTER_ADMIN":
-        return "👑";
-      case "SUB_ADMIN":
-        return "🛠️";
-      case "CLIENT":
-        return "👤";
-      case "PHOTOGRAPHER":
-        return "📸";
-      case "EDITOR":
-        return "✍️";
-      default:
-        return "👤";
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "MASTER_ADMIN":
-        return "Master Admin";
-      case "SUB_ADMIN":
-        return "Sub Admin";
-      case "CLIENT":
-        return "Client";
-      case "PHOTOGRAPHER":
-        return "Photographer";
-      case "EDITOR":
-        return "Editor";
-      default:
-        return "User";
     }
   };
 
@@ -178,20 +166,19 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center">
           <div className="mx-auto h-12 w-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#e9f9f0' }}>
-            <Building2 className="h-6 w-6" style={{ color: '#065f46' }} />
+            <User className="h-6 w-6" style={{ color: '#065f46' }} />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            {showOtp ? "Enter verification code" : "Sign in to your account"}
+            {showOtp ? "Enter verification code" : "Client Login"}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {showOtp && selectedTenant ? (
+            {showOtp && selectedClient ? (
               <>
                 We sent a 6-digit code to <span className="font-medium">{email}</span><br/>
-                Signing in to <span className="font-medium">{selectedTenant.name}</span> as{" "}
-                <span className="font-medium">{getRoleLabel(selectedTenant.role)}</span>
+                Signing in to <span className="font-medium">{selectedClient.name}</span>
               </>
             ) : (
-              "Enter your email address to continue"
+              "Enter your email address to access your client account"
             )}
           </p>
         </div>
@@ -305,7 +292,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => {
                     setShowOtp(false);
-                    setSelectedTenant(null);
+                    setSelectedClient(null);
                     setOtp("");
                     setOtpSent(false);
                     setError("");
@@ -339,49 +326,64 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            Don't have an account?{" "}
-            <a href="/register" className="font-medium" style={{ color: '#065f46' }}>
-              Sign up
+            Need admin access?{" "}
+            <a href="/login" className="font-medium" style={{ color: '#065f46' }}>
+              Admin Login
             </a>
           </p>
         </div>
       </div>
 
-      {/* Tenant Selection Modal */}
-      {showTenantSelection && (
+      {/* Client Selection Modal */}
+      {showClientSelection && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Select an account
+              Select Client Account
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              Choose which account you'd like to sign in to:
+              Choose which client account you'd like to access:
             </p>
             <div className="space-y-3">
-              {tenants.map((tenant) => (
+              {clients.map((client) => (
                 <button
-                  key={tenant.id}
-                  onClick={() => handleTenantSelect(tenant)}
-                  className="w-full text-left p-4 border border-gray-200 rounded-lg transition-colors"
-                  style={{ 
-                    '--hover-border-color': '#e9f9f0',
-                    '--hover-bg-color': '#e9f9f0'
-                  } as React.CSSProperties}
+                  key={client.id}
+                  onClick={() => handleClientSelect(client)}
+                  className="w-full text-left p-4 border border-gray-200 rounded-lg transition-colors hover:border-green-200 hover:bg-green-50"
                 >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">{getRoleIcon(tenant.role)}</span>
-                    <div>
-                      <div className="font-medium text-gray-900">{tenant.name}</div>
-                      <div className="text-sm text-gray-500">{getRoleLabel(tenant.role)}</div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                        <Building2 className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">{client.name}</div>
+                        {client.company && (
+                          <div className="text-sm text-gray-500">{client.company.name}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-gray-500">
+                      {client._count && (
+                        <>
+                          <div className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {client._count.bookings}
+                          </div>
+                          <div className="flex items-center">
+                            <FileText className="h-3 w-3 mr-1" />
+                            {client._count.invoices}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </button>
               ))}
             </div>
             <button
-              onClick={() => setShowTenantSelection(false)}
+              onClick={() => setShowClientSelection(false)}
               className="mt-6 w-full py-2 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              style={{ '--tw-ring-color': '#e9f9f0' } as React.CSSProperties}
             >
               Cancel
             </button>

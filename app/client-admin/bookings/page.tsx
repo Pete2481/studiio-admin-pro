@@ -32,6 +32,40 @@ import { getFavoritedServices } from "@/lib/serviceManager";
 import { useBookings } from "@/src/client/api/bookings";
 import { useBlockouts } from "@/src/client/api/blockouts";
 
+// Client-specific data fetching
+interface ClientBooking {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  status: string;
+  clientId: string;
+  address?: string;
+  notes?: string;
+  durationM: number;
+  services?: string;
+  tenantId: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  client?: {
+    id: string;
+    name: string;
+  };
+  agent?: {
+    id: string;
+    name: string;
+  };
+  service?: {
+    id: string;
+    name: string;
+  };
+  gallery?: {
+    id: string;
+    title: string;
+  };
+}
+
 function statusColor(s: Booking["status"]) {
   switch (s) {
     case "TENTATIVE":
@@ -78,11 +112,46 @@ function dashboardPillClass(label: ReturnType<typeof statusToDashboardLabel>) {
 export default function ClientAdminBookingsPage() {
   const { data: session } = useSession();
   const { currentTenant } = useTenant();
-  const { currentClient } = useClientAdmin();
+  const { currentClient, availableClients, switchClient } = useClientAdmin();
   
   // Get tenant ID and user ID for database operations
   const tenantId = currentTenant?.id || "cmfkr33ls000113jn88rtdaih"; // fallback to business-media-drive
   const userId = session?.user?.id || "default-user-id"; // fallback for testing
+  
+  // Client-specific bookings state
+  const [clientBookings, setClientBookings] = useState<ClientBooking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  
+  // Fetch client-specific bookings
+  const fetchClientBookings = async () => {
+    if (!currentClient?.id || !tenantId) {
+      setClientBookings([]);
+      return;
+    }
+
+    try {
+      setIsLoadingBookings(true);
+      const response = await fetch(`/api/client/bookings?clientId=${currentClient.id}&tenantId=${tenantId}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setClientBookings(data.bookings);
+      } else {
+        console.error('Failed to fetch client bookings:', data.error);
+        setClientBookings([]);
+      }
+    } catch (error) {
+      console.error('Error fetching client bookings:', error);
+      setClientBookings([]);
+    } finally {
+      setIsLoadingBookings(false);
+    }
+  };
+
+  // Fetch bookings when client or tenant changes
+  useEffect(() => {
+    fetchClientBookings();
+  }, [currentClient?.id, tenantId]);
   
   // Use database hooks instead of localStorage
   const { 

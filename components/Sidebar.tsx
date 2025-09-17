@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { Route } from "next";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Calendar, LayoutDashboard, Users, UserCog, Settings, BookOpenText, Briefcase, Images, CreditCard, LogOut, ChevronDown, Building, UserCheck, Eye, Plus, Wrench, Menu, X, ChevronRight, BarChart3, FileText, MessageSquare, Mail } from "lucide-react";
 import clsx from "clsx";
 import { useEffect, useState, createContext, useContext } from "react";
@@ -30,6 +30,7 @@ type NavItem = {
 
 export default function Sidebar(){
   const pathname = usePathname();
+  const router = useRouter();
   const { currentTenant } = useTenant();
   // Create tenant-specific URLs
   const tenantPrefix = currentTenant ? `/t/${currentTenant.slug}/admin` : '/t/business-media-drive/admin';
@@ -105,6 +106,28 @@ export default function Sidebar(){
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Call logout API endpoint
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      // Clear any localStorage items
+      localStorage.removeItem('studiio.currentTenant');
+      localStorage.removeItem('studiio.currentClient');
+      localStorage.removeItem('studiio.pendingBookingsCount');
+      
+      // Redirect to login page
+      router.push('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still redirect even if there's an error
+      router.push('/login');
+    }
   };
 
 
@@ -256,7 +279,10 @@ export default function Sidebar(){
             })}
           </nav>
           <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200">
-            <button className={clsx("w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:bg-[#e9f9f0] hover:text-black", isExpanded ? "justify-start" : "justify-center")}>
+            <button 
+              onClick={handleLogout}
+              className={clsx("w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:bg-[#e9f9f0] hover:text-black", isExpanded ? "justify-start" : "justify-center")}
+            >
               <LogOut size={16} className="flex-shrink-0"/>
               <span className={clsx("transition-opacity duration-300", isExpanded ? "opacity-100" : "opacity-0 w-0 overflow-hidden")}>Logout</span>
             </button>

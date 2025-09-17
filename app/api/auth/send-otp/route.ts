@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { emailService } from '@/lib/email-service';
 
 const prisma = new PrismaClient();
 
@@ -56,13 +57,31 @@ export async function POST(request: NextRequest) {
       console.log('User updated:', user.id);
     }
 
-    // TODO: Send OTP via email
-    // For now, we'll log it to console for testing
-    console.log(`OTP for ${email}: ${otp}`);
+    // Get tenant information for email sending
+    const tenantUser = await prisma.userTenant.findFirst({
+      where: { userId: user.id },
+      include: { tenant: true }
+    });
+
+    let emailSent = false;
+    if (tenantUser) {
+      // Try to send email via tenant's SMTP settings
+      emailSent = await emailService.sendOtpEmail(
+        tenantUser.tenant.id,
+        email,
+        otp,
+        tenantUser.tenant.name
+      );
+    }
+
+    // Fallback to console log if email sending fails
+    if (!emailSent) {
+      console.log(`OTP for ${email}: ${otp}`);
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'OTP sent to your email',
+      message: emailSent ? 'OTP sent to your email' : 'OTP generated (check console for testing)',
       // Remove this in production - only for testing
       otp: otp
     });
