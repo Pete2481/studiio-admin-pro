@@ -31,13 +31,15 @@ export async function GET(request: NextRequest) {
     const tenantId = decoded.tenantId;
 
     // Fetch invoices for the specific client within the tenant
-    const invoices = await prisma.invoice.findMany({
+
+      const invoices = await prisma.invoice.findMany({
       where: {
         clientId: clientId,
         tenantId: tenantId
       },
       include: {
         client: true,
+          // @ts-ignore
         booking: true
       },
       orderBy: {
