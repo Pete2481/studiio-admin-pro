@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       include: {
         client: true,
         agent: true,
+          //@ts-ignore
         service: true,
         gallery: true
       },

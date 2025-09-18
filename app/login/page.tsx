@@ -123,8 +123,10 @@ export default function LoginPage() {
         throw new Error(data.error || "Login failed");
       }
 
+
       // Redirect to appropriate dashboard
       if (selectedTenant.role === "MASTER_ADMIN" || selectedTenant.role === "SUB_ADMIN") {
+
         router.push(`/t/${selectedTenant.slug}/admin`);
       } else if (selectedTenant.role === "CLIENT") {
         router.push(`/client-admin`);
@@ -243,7 +245,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
+                style={{
                   backgroundColor: '#e9f9f0',
                   color: '#065f46',
                   '--tw-ring-color': '#e9f9f0'
@@ -319,7 +321,7 @@ export default function LoginPage() {
                   type="submit"
                   disabled={loading}
                   className="flex-1 flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
+                  style={{
                     backgroundColor: '#e9f9f0',
                     color: '#065f46',
                     '--tw-ring-color': '#e9f9f0'
@@ -363,7 +365,7 @@ export default function LoginPage() {
                   key={tenant.id}
                   onClick={() => handleTenantSelect(tenant)}
                   className="w-full text-left p-4 border border-gray-200 rounded-lg transition-colors"
-                  style={{ 
+                  style={{
                     '--hover-border-color': '#e9f9f0',
                     '--hover-bg-color': '#e9f9f0'
                   } as React.CSSProperties}
