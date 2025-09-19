@@ -57,6 +57,8 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  password      String?   // For OTP codes (temporary)
+  otpExpires    DateTime? // When OTP expires
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -177,6 +179,7 @@ model TenantSettings {
   businessHours         String?  // Store business hours as JSON string
   notificationSettings  String?  // Store notification preferences as JSON string
   brandingSettings      String?  // Store branding preferences as JSON string
+  smtpSettings          String?  // Store SMTP settings as JSON string
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

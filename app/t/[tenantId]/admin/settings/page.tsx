@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import PageLayout from "@/components/PageLayout";
 import Sidebar from "@/components/Sidebar";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -9,7 +10,25 @@ import type { AddressComponents } from "@/lib/types";
 type Tab = "profile" | "smtp" | "subscription" | "banking" | "password" | "connections" | "gallery-layouts";
 
 export default function Page(){
+  const params = useParams();
+  const tenantSlug = params.tenantId as string;
   const [tab, setTab] = useState<Tab>("profile");
+  const [actualTenantId, setActualTenantId] = useState<string>("");
+
+  useEffect(() => {
+    async function fetchTenantId() {
+      try {
+        const response = await fetch(`/api/get-tenant-id?slug=${tenantSlug}`);
+        const data = await response.json();
+        if (data.success && data.tenant) {
+          setActualTenantId(data.tenant.id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch tenant ID:', error);
+      }
+    }
+    fetchTenantId();
+  }, [tenantSlug]);
 
   return (
     <>
@@ -47,7 +66,7 @@ export default function Page(){
 
           <div className="p-6">
             {tab === "profile" && <ProfileSection />}
-            {tab === "smtp" && <SmtpSection />}
+            {tab === "smtp" && <SmtpSection tenantId={actualTenantId} />}
             {tab === "subscription" && <SubscriptionSection />}
             {tab === "banking" && <BankingSection />}
             {tab === "password" && <PasswordSection />}
@@ -85,6 +104,7 @@ function ProfileSection(){
   const [timezone, setTimezone] = useState<string>("Australia/Sydney");
   const [address, setAddress] = useState<string>("");
   const [addressComponents, setAddressComponents] = useState<AddressComponents|undefined>(undefined);
+  const [tenantInfo, setTenantInfo] = useState<any>(null);
 
   useEffect(() => {
     try {
@@ -95,6 +115,22 @@ function ProfileSection(){
       const comp = localStorage.getItem("studiio.settings.address.components");
       if (comp) setAddressComponents(JSON.parse(comp));
     } catch {}
+  }, []);
+
+  // Fetch tenant info
+  useEffect(() => {
+    async function fetchTenantInfo() {
+      try {
+        const response = await fetch('/api/get-tenant-id?slug=business-media-drive');
+        const data = await response.json();
+        if (data.success && data.tenant) {
+          setTenantInfo(data.tenant);
+        }
+      } catch (error) {
+        console.error('Failed to fetch tenant info:', error);
+      }
+    }
+    fetchTenantInfo();
   }, []);
 
   const zones = useMemo(() => getAllTimeZones(), []);
@@ -111,7 +147,7 @@ function ProfileSection(){
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <label className="text-sm">
         <div className="mb-1">Name</div>
-        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="Pete Hogan"/>
+        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="Team Studiio"/>
       </label>
       <label className="text-sm">
         <div className="mb-1">Status</div>
@@ -119,11 +155,11 @@ function ProfileSection(){
       </label>
       <label className="text-sm">
         <div className="mb-1">E-mail</div>
-        <input className="w-full rounded-lg bg-gray-100 border border-[var(--border)] px-3 py-2 text-sm" defaultValue="pete@mediadrive.com.au" readOnly/>
+        <input className="w-full rounded-lg bg-gray-100 border border-[var(--border)] px-3 py-2 text-sm" defaultValue="team@studiio.au" readOnly/>
       </label>
       <label className="text-sm">
         <div className="mb-1">Business Name</div>
-        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="Media Drive"/>
+        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue={tenantInfo?.name || "Business Media Drive"}/>
       </label>
       <label className="text-sm">
         <div className="mb-1">TAX</div>
@@ -158,31 +194,271 @@ function ProfileSection(){
   );
 }
 
-function SmtpSection(){
+function SmtpSection({ tenantId }: { tenantId: string }){
+  const [settings, setSettings] = useState({
+    host: '',
+    port: 587,
+    secure: false,
+    auth: {
+      user: '',
+      pass: ''
+    },
+    fromEmail: '',
+    active: false
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (tenantId) {
+      loadSettings();
+    }
+  }, [tenantId]);
+
+  const loadSettings = async () => {
+    if (!tenantId) return;
+    
+    try {
+      const response = await fetch(`/api/tenant/smtp-settings?tenantId=${tenantId}`);
+      const data = await response.json();
+      
+      if (data.success && data.smtpSettings) {
+        setSettings(data.smtpSettings);
+      }
+    } catch (error) {
+      console.error('Error loading SMTP settings:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!tenantId) return;
+    
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/tenant/smtp-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, smtpSettings: settings })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage({ type: 'success', text: 'SMTP settings saved successfully!' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to save settings' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save settings' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTest = async () => {
+    if (!tenantId || !testEmail) {
+      setMessage({ type: 'error', text: 'Please enter a recipient email address' });
+      return;
+    }
+    
+    setTesting(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/tenant/test-smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, to: testEmail })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Test email sent successfully!' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to send test email' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to send test email' });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleInputChange = (field: string, value: string | number | boolean) => {
+    if (field.startsWith('auth.')) {
+      const authField = field.split('.')[1];
+      setSettings(prev => ({
+        ...prev,
+        auth: {
+          ...prev.auth,
+          [authField]: value
+        }
+      }));
+    } else {
+      setSettings(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <label className="text-sm">
-        <div className="mb-1">SMTP Username</div>
-        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="info@mediadrive.com.au"/>
-      </label>
-      <label className="text-sm">
-        <div className="mb-1">SMTP From Email</div>
-        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="info@mediadrive.com.au"/>
-      </label>
-      <label className="text-sm">
-        <div className="mb-1">SMTP Email Password</div>
-        <input type="password" className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="password"/>
-      </label>
-      <label className="text-sm">
-        <div className="mb-1">SMTP Host Address</div>
-        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="mail.mediadrive.com.au"/>
-      </label>
-      <label className="text-sm">
-        <div className="mb-1">SMTP Port Number</div>
-        <input className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" defaultValue="587"/>
-      </label>
-      <div className="md:col-span-2">
-        <button className="btn">Save Changes</button>
+    <div className="space-y-6">
+      {/* Active Toggle */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+        <div>
+          <h3 className="font-medium text-gray-900">Email Notifications</h3>
+          <p className="text-sm text-gray-600">Enable or disable email sending</p>
+        </div>
+        <button
+          onClick={() => handleInputChange('active', !settings.active)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            settings.active ? 'bg-teal-600' : 'bg-gray-200'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              settings.active ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* SMTP Configuration */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label className="text-sm">
+          <div className="mb-1">SMTP Host Address</div>
+          <input 
+            className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" 
+            value={settings.host}
+            onChange={(e) => handleInputChange('host', e.target.value)}
+            placeholder="mail.yourdomain.com"
+          />
+        </label>
+        <label className="text-sm">
+          <div className="mb-1">SMTP Port Number</div>
+          <input 
+            type="number"
+            className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" 
+            value={settings.port}
+            onChange={(e) => handleInputChange('port', parseInt(e.target.value))}
+            placeholder="587"
+          />
+        </label>
+        <label className="text-sm">
+          <div className="mb-1">SMTP Username</div>
+          <input 
+            className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" 
+            value={settings.auth.user}
+            onChange={(e) => handleInputChange('auth.user', e.target.value)}
+            placeholder="info@yourdomain.com"
+          />
+        </label>
+        <label className="text-sm">
+          <div className="mb-1">SMTP Email Password</div>
+          <input 
+            type="password" 
+            className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" 
+            value={settings.auth.pass}
+            onChange={(e) => handleInputChange('auth.pass', e.target.value)}
+            placeholder="Your email password"
+          />
+        </label>
+        <label className="text-sm">
+          <div className="mb-1">From Email Address</div>
+          <input 
+            type="email"
+            className="w-full rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm" 
+            value={settings.fromEmail}
+            onChange={(e) => handleInputChange('fromEmail', e.target.value)}
+            placeholder="noreply@yourdomain.com"
+          />
+        </label>
+      </div>
+
+      {/* Security Option */}
+      <div>
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={settings.secure}
+            onChange={(e) => handleInputChange('secure', e.target.checked)}
+            className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+          />
+          <span className="text-sm font-medium text-gray-700">
+            Use SSL/TLS (recommended for port 465)
+          </span>
+        </label>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div className={`p-4 rounded-lg flex items-center gap-3 ${
+          message.type === 'success' 
+            ? 'bg-green-50 border border-green-200' 
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          {message.type === 'success' ? (
+            <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          <p className={`text-sm ${
+            message.type === 'success' ? 'text-green-700' : 'text-red-700'
+          }`}>
+            {message.text}
+          </p>
+        </div>
+      )}
+
+      {/* Note */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-700">
+          <strong>Note:</strong> Settings must be saved before you can send a test email.
+          Make sure your email provider allows SMTP access and that you're using the correct credentials.
+        </p>
+      </div>
+
+      {/* Test Email Section */}
+      <div className="space-y-4">
+        <h3 className="font-medium text-gray-900">Test Email Configuration</h3>
+        <div className="flex gap-4">
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="Enter email address to test"
+            className="flex-1 rounded-lg bg-white border border-[var(--border)] px-3 py-2 text-sm"
+          />
+          <button 
+            onClick={handleTest}
+            disabled={testing || !settings.active || !testEmail}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {testing ? 'Testing...' : 'Send Test Email'}
+          </button>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4">
+        <button 
+          onClick={handleSave}
+          disabled={loading}
+          className="btn"
+        >
+          {loading ? 'Saving...' : 'Save Changes'}
+        </button>
       </div>
     </div>
   );

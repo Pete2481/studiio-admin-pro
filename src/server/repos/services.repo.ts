@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { BaseRepository } from './base.repo';
-import { CreateServiceSchema, UpdateServiceSchema, ActionResult } from './types';
+import {BaseRepository} from './base.repo';
+import {ActionResult, CreateServiceSchema, UpdateServiceSchema} from './types';
 
 export class ServicesRepository extends BaseRepository {
   constructor() {
@@ -10,7 +9,7 @@ export class ServicesRepository extends BaseRepository {
   async create(tenantId: string, data: any, createdBy: string): Promise<ActionResult> {
     try {
       const validatedData = CreateServiceSchema.parse(data);
-      
+
       const service = await this.prisma.service.create({
         data: {
           ...validatedData,
@@ -44,7 +43,7 @@ export class ServicesRepository extends BaseRepository {
   async update(tenantId: string, serviceId: string, data: any, updatedBy: string): Promise<ActionResult> {
     try {
       const validatedData = UpdateServiceSchema.parse(data);
-      
+
       const existingService = await this.prisma.service.findFirst({
         where: { id: serviceId, tenantId },
       });
@@ -136,17 +135,17 @@ export class ServicesRepository extends BaseRepository {
   }) {
     try {
       const { isActive, favorite, search, page = 1, limit = 50 } = options || {};
-      
+
       const where: any = { tenantId };
-      
+
       if (isActive !== undefined) {
         where.isActive = isActive;
       }
-      
+
       if (favorite !== undefined) {
         where.favorite = favorite;
       }
-      
+
       if (search) {
         where.OR = [
           { name: { contains: search, mode: 'insensitive' } },
@@ -228,7 +227,7 @@ export class ServicesRepository extends BaseRepository {
   async getFavorites(tenantId: string) {
     try {
       const services = await this.prisma.service.findMany({
-        where: { 
+        where: {
           tenantId,
           favorite: true,
           isActive: true,

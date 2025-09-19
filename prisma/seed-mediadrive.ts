@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
-import { generateToken } from '../lib/utils';
+import {PrismaClient} from '@prisma/client/edge'
+import {withAccelerate} from '@prisma/extension-accelerate'
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient().$extends(withAccelerate())
 
 async function main() {
   console.log('🌱 Starting Mediadrive-only database seed...');

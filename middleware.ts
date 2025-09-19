@@ -1,44 +1,46 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import {NextRequest, NextResponse} from "next/server";
+import { jwtVerify } from "jose";
 
-export default function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+const PUBLIC_PATHS = ["/", "/login"];
 
-  // Public routes that don't require authentication
-  const publicRoutes = [
-    "/login",
-    "/register",
-    "/verify-email",
-    "/auth/error",
-    "/reset",
-    "/invite",
-    "/gallery",
-    "/pay",
-    "/demo",
-    "/tenant-select",
-  ];
+export async function middleware(req: NextRequest) {
+    const { pathname } = req.nextUrl;
 
-  // Check if current path is public
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-  if (isPublicRoute) {
-    return NextResponse.next();
-  }
+    // Skip public paths and NextAuth API
+    if (
+        PUBLIC_PATHS.includes(pathname) ||
+        pathname.startsWith("/api/auth")
+    ) {
+        return NextResponse.next();
+    }
 
-  // For now, allow all other routes to pass through
-  // We'll implement proper auth middleware later
-  return NextResponse.next();
+    const token = req.cookies.get("auth-token")?.value;
+    if (!token) {
+        if (!pathname.startsWith("/api")) {
+            return NextResponse.redirect(new URL("/login", req.url));
+        }
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+        const secret = new TextEncoder().encode(
+            process.env.NEXTAUTH_SECRET || "fallback-secret"
+        );
+        await jwtVerify(token, secret);
+        return NextResponse.next();
+    } catch (e) {
+        // @ts-ignore
+        console.log("Error:", e.message);
+        if (!pathname.startsWith("/api")) {
+            return NextResponse.redirect(new URL("/login", req.url));
+        }
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
-  ],
+    matcher: [
+        "/((?!_next/static|_next/image|.*\\..*|api/auth|not-found).*)",
+    ],
 };
+

@@ -1,6 +1,7 @@
-import { PrismaClient, Blockout } from '@prisma/client';
+import { PrismaClient, Blockout } from '@prisma/client/edge';
+import {withAccelerate} from "@prisma/extension-accelerate";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient().$extends(withAccelerate())
 
 export interface CreateBlockoutData {
   title: string;

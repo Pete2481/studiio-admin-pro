@@ -1,6 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client/edge';
+import {withAccelerate} from "@prisma/extension-accelerate";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient().$extends(withAccelerate())
 
 export interface CreateNewsletterData {
   title: string;
@@ -116,7 +117,7 @@ export class NewsletterRepo {
 
   async getClientsByTenant(tenantId: string) {
     return prisma.client.findMany({
-      where: { 
+      where: {
         tenantId,
         isActive: true,
       },
