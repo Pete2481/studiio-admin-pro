@@ -1,7 +1,7 @@
 import {NextRequest, NextResponse} from "next/server";
 import { jwtVerify } from "jose";
 
-const PUBLIC_PATHS = ["/", "/login", "/register"];
+const PUBLIC_PATHS = ["/", "/login"];
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
@@ -27,11 +27,8 @@ export async function middleware(req: NextRequest) {
             process.env.NEXTAUTH_SECRET || "fallback-secret"
         );
         await jwtVerify(token, secret);
-        console.log("Verification successfully", token);
         return NextResponse.next();
     } catch (e) {
-        console.log("Verification failed:", pathname, );
-        console.log("Token:", token);
         // @ts-ignore
         console.log("Error:", e.message);
         if (!pathname.startsWith("/api")) {
@@ -42,5 +39,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-    matcher: ["/((?!_next/static|_next/image|.*\\..*|api/auth).*)"],
+    matcher: [
+        "/((?!_next/static|_next/image|.*\\..*|api/auth|not-found).*)",
+    ],
 };
+
